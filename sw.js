@@ -13,7 +13,7 @@
 // arquivo estático — o "activate" apaga caches de versões antigas.
 // ===========================================================
 
-const CACHE_VERSION = "gfm-v2";
+const CACHE_VERSION = "gfm-v3";
 const CACHE_ESTATICO = `gfm-estatico-${CACHE_VERSION}`;
 
 // Sempre as URLs "limpas" (sem .html) — o vercel.json usa cleanUrls, então
