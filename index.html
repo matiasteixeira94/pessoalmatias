@@ -9,6 +9,9 @@
   <link rel="stylesheet" href="./assets/css/variaveis.css" />
   <link rel="stylesheet" href="./assets/css/componentes.css" />
   <link rel="stylesheet" href="./assets/css/principal.css" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./assets/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./assets/icons/icon-180.png" />
 </head>
 <body>
   <div class="pagina">
@@ -181,7 +184,7 @@
       } else {
         const percentual = totalRealizado / totalPlanejado;
         cardOrcamento.textContent = formatarPercentual(percentual);
-        cardOrcamento.style.color = percentual > 1 ? "var(--cor-despesa)" : percentual > 0.8 ? "var(--cor-alerta-600)" : "";
+        cardOrcamento.style.color = percentual > 1 ? "var(--cor-despesa)" : percentual > 0.8 ? "var(--cor-alerta-700)" : "";
         detalheOrcamento.textContent = `${formatarMoeda(totalRealizado)} de ${formatarMoeda(totalPlanejado)}`;
       }
 

@@ -43,6 +43,20 @@ function montarNavLateral(paginaAtual) {
   document.body.appendChild(nav);
 }
 
+/**
+ * Registra o service worker (cache offline do app). Silencioso se o
+ * navegador não suportar ou se o registro falhar — o app continua
+ * funcionando normalmente, só sem o modo offline.
+ */
+function registrarServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch((erro) => {
+      console.warn("[app] Não foi possível registrar o service worker:", erro);
+    });
+  });
+}
+
 function montarNavInferior(paginaAtual) {
   const nav = document.createElement("nav");
   nav.className = "nav-inferior";
@@ -76,6 +90,7 @@ export async function iniciarApp(paginaAtual) {
   gerarLancamentosDoMes(competenciaAtual());
   montarNavLateral(paginaAtual);
   montarNavInferior(paginaAtual);
+  registrarServiceWorker();
 }
 
 export { PAGINAS };

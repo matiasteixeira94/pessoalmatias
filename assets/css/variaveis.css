@@ -41,7 +41,7 @@
   --cor-borda-forte: #c3cbc9;
   --cor-texto: #1c2320;
   --cor-texto-suave: #55625d;
-  --cor-texto-fraco: #838f8a;
+  --cor-texto-fraco: #626d68;
   --cor-texto-inverso: #ffffff;
 
   /* ---- Cores por tipo de lançamento ---- */
@@ -113,7 +113,7 @@
     --cor-borda-forte: #3a454c;
     --cor-texto: #e9edec;
     --cor-texto-suave: #aab3ae;
-    --cor-texto-fraco: #7c8985;
+    --cor-texto-fraco: #8f9a95;
     --cor-texto-inverso: #10161a;
 
     --cor-primaria-900: #d6effe;
