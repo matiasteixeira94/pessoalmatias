@@ -48,6 +48,9 @@ export function criarLancamento(dados = {}) {
     status: dados.status || "pago",
     recorrente: Boolean(dados.recorrente),
     observacoes: dados.observacoes || "",
+    // Preenchido apenas quando o lançamento foi gerado automaticamente a
+    // partir de uma despesa fixa (ver criarDespesaFixa / db.gerarLancamentosDoMes).
+    despesaFixaId: dados.despesaFixaId || null,
     criadoEm: dados.criadoEm || agora,
     atualizadoEm: agora,
   };
@@ -109,7 +112,7 @@ export function criarCategoria(dados = {}) {
     id: dados.id || gerarId(),
     nome: dados.nome || "",
     tipo: dados.tipo || "despesa",
-    cor: dados.cor || "#1c6d82",
+    cor: dados.cor || "#2c82b5",
     icone: dados.icone || "🏷️",
     ativa: dados.ativa !== undefined ? Boolean(dados.ativa) : true,
   };
@@ -133,6 +136,58 @@ export function validarCategoria(categoria) {
 
   if (!categoria.cor || !/^#[0-9a-fA-F]{6}$/.test(categoria.cor)) {
     erros.cor = "Cor inválida.";
+  }
+
+  return { valido: Object.keys(erros).length === 0, erros };
+}
+
+/**
+ * Cria um objeto DespesaFixa (modelo/template de gasto recorrente) com
+ * valores padrão. Toda competência que ainda não tiver um lançamento
+ * gerado a partir dela recebe um automaticamente — ver
+ * db.gerarLancamentosDoMes().
+ * @param {Partial<object>} dados
+ * @returns {object}
+ */
+export function criarDespesaFixa(dados = {}) {
+  return {
+    id: dados.id || gerarId(),
+    descricao: dados.descricao || "",
+    categoria: dados.categoria || "",
+    subcategoria: dados.subcategoria || "",
+    formaPagamento: dados.formaPagamento || "",
+    valor: Math.abs(Number(dados.valor) || 0),
+    // Dia do mês em que o gasto costuma vencer (1-31). Em meses mais
+    // curtos, é ajustado para o último dia disponível.
+    diaVencimento: Math.min(Math.max(parseInt(dados.diaVencimento, 10) || 1, 1), 31),
+    ativa: dados.ativa !== undefined ? Boolean(dados.ativa) : true,
+  };
+}
+
+/**
+ * Valida uma DespesaFixa.
+ * @param {object} despesaFixa
+ * @returns {{ valido: boolean, erros: Record<string,string> }}
+ */
+export function validarDespesaFixa(despesaFixa) {
+  const erros = {};
+
+  if (!despesaFixa.descricao || !despesaFixa.descricao.trim()) {
+    erros.descricao = "Informe uma descrição.";
+  }
+
+  if (!despesaFixa.categoria) {
+    erros.categoria = "Selecione uma categoria.";
+  }
+
+  const valor = Number(despesaFixa.valor);
+  if (!Number.isFinite(valor) || valor <= 0) {
+    erros.valor = "O valor deve ser maior que zero.";
+  }
+
+  const dia = Number(despesaFixa.diaVencimento);
+  if (!Number.isFinite(dia) || dia < 1 || dia > 31) {
+    erros.diaVencimento = "Informe um dia entre 1 e 31.";
   }
 
   return { valido: Object.keys(erros).length === 0, erros };

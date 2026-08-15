@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Lançamentos — Gestão Financeira Matias</title>
-  <meta name="theme-color" content="#16596a" />
+  <meta name="theme-color" content="#015c91" />
   <link rel="stylesheet" href="./assets/css/reset.css" />
   <link rel="stylesheet" href="./assets/css/variaveis.css" />
   <link rel="stylesheet" href="./assets/css/componentes.css" />
@@ -24,6 +24,46 @@
         </div>
         <button type="button" class="botao botao--primario" id="botao-novo-lancamento">+ Novo lançamento</button>
       </div>
+
+      <section class="secao">
+        <div class="card">
+          <div class="cabecalho-pagina" style="flex-wrap:wrap; gap:var(--espaco-3)">
+            <div>
+              <h2 class="secao__titulo">Despesas fixas</h2>
+              <p class="campo__ajuda">
+                Gastos que se repetem todo mês (aluguel, assinaturas...). Uma vez cadastrados,
+                aparecem automaticamente em "Lançamentos" como <strong>pendente</strong> — você não
+                precisa lançar de novo, só confirmar o pagamento.
+              </p>
+            </div>
+            <div style="display:flex; gap:var(--espaco-2); flex-wrap:wrap">
+              <button type="button" class="botao botao--secundario" id="botao-gerar-mes">Gerar lançamentos do mês</button>
+              <button type="button" class="botao botao--primario" id="botao-nova-fixa">+ Nova despesa fixa</button>
+            </div>
+          </div>
+
+          <div class="tabela-wrap" style="margin-top:var(--espaco-4)">
+            <table class="tabela">
+              <thead>
+                <tr>
+                  <th>Dia</th>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th class="col-valor">Valor</th>
+                  <th>Situação</th>
+                  <th class="col-acoes">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="corpo-tabela-fixas">
+                <!-- preenchido via JS -->
+              </tbody>
+            </table>
+            <div class="estado-vazio" id="estado-vazio-fixas" hidden>
+              Nenhuma despesa fixa cadastrada ainda.
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section class="secao">
         <div class="card">
@@ -118,10 +158,21 @@
       obterLancamento,
       listarCategorias,
       listarFormasPagamento,
+      listarDespesasFixas,
+      salvarDespesaFixa,
+      excluirDespesaFixa,
+      obterDespesaFixa,
+      gerarLancamentosDoMes,
       ErroArmazenamento,
     } from "./assets/js/db.js";
-    import { criarLancamento, validarLancamento, STATUS_LANCAMENTO } from "./assets/js/modelos.js";
-    import { formatarMoeda, formatarData, hojeIso, competenciaAtual } from "./assets/js/formatadores.js";
+    import {
+      criarLancamento,
+      validarLancamento,
+      STATUS_LANCAMENTO,
+      criarDespesaFixa,
+      validarDespesaFixa,
+    } from "./assets/js/modelos.js";
+    import { formatarMoeda, formatarData, hojeIso, competenciaAtual, formatarCompetencia } from "./assets/js/formatadores.js";
     import { exibirToast, abrirModal, fecharModal, confirmarAcao, escaparHtml, seloStatus, chipCor } from "./assets/js/ui.js";
 
     await iniciarApp("lancamentos");
@@ -134,7 +185,8 @@
     const filtroStatus = document.getElementById("filtro-status");
     const filtroBusca = document.getElementById("filtro-busca");
 
-    filtroMes.value = competenciaAtual();
+    const mesNaUrl = new URLSearchParams(window.location.search).get("mes");
+    filtroMes.value = mesNaUrl || competenciaAtual();
 
     function popularFiltroCategorias() {
       const categorias = listarCategorias();
@@ -213,6 +265,174 @@
       }
 
       renderizarResumo(lista);
+    }
+
+    // ---------------------------------------------------------
+    // Despesas fixas (gastos recorrentes lançados automaticamente)
+    // ---------------------------------------------------------
+
+    const corpoTabelaFixas = document.getElementById("corpo-tabela-fixas");
+    const estadoVazioFixas = document.getElementById("estado-vazio-fixas");
+
+    function linhaFixa(fixa) {
+      const categorias = listarCategorias();
+      const categoriaInfo = categorias.find((c) => c.nome === fixa.categoria);
+      const cor = categoriaInfo?.cor || "#999";
+
+      const tr = document.createElement("tr");
+      if (!fixa.ativa) tr.style.opacity = "0.55";
+      tr.innerHTML = `
+        <td>Dia ${fixa.diaVencimento}</td>
+        <td>${escaparHtml(fixa.descricao)}</td>
+        <td>${chipCor(cor)} ${escaparHtml(fixa.categoria)}</td>
+        <td class="col-valor">${formatarMoeda(fixa.valor)}</td>
+        <td>${fixa.ativa ? '<span class="selo selo--pago">Ativa</span>' : '<span class="selo selo--pendente">Pausada</span>'}</td>
+        <td class="col-acoes">
+          <button type="button" class="botao botao--icone" data-acao="pausar-fixa" data-id="${fixa.id}" aria-label="${fixa.ativa ? "Pausar" : "Reativar"} despesa fixa">${fixa.ativa ? "⏸️" : "▶️"}</button>
+          <button type="button" class="botao botao--icone" data-acao="editar-fixa" data-id="${fixa.id}" aria-label="Editar despesa fixa">✏️</button>
+          <button type="button" class="botao botao--icone" data-acao="excluir-fixa" data-id="${fixa.id}" aria-label="Excluir despesa fixa">🗑️</button>
+        </td>
+      `;
+      return tr;
+    }
+
+    function renderizarFixas() {
+      const lista = listarDespesasFixas();
+      corpoTabelaFixas.innerHTML = "";
+
+      if (lista.length === 0) {
+        estadoVazioFixas.hidden = false;
+      } else {
+        estadoVazioFixas.hidden = true;
+        lista.forEach((fixa) => corpoTabelaFixas.appendChild(linhaFixa(fixa)));
+      }
+    }
+
+    function abrirFormularioFixa(fixaExistente) {
+      const editando = Boolean(fixaExistente);
+      const dados = fixaExistente || criarDespesaFixa({ diaVencimento: 5, ativa: true });
+
+      const conteudoHtml = `
+        <form id="form-fixa" novalidate>
+          <div class="grade-formulario">
+            <div class="campo">
+              <label class="campo__rotulo" for="fixa-descricao">Descrição <span class="obrigatorio">*</span></label>
+              <input class="campo__entrada" type="text" id="fixa-descricao" value="${escaparHtml(dados.descricao)}" required maxlength="120" />
+              <span class="campo__erro" id="erro-fixa-descricao"></span>
+            </div>
+
+            <div class="grade-formulario grade-formulario--2col">
+              <div class="campo">
+                <label class="campo__rotulo" for="fixa-categoria">Categoria <span class="obrigatorio">*</span></label>
+                <select class="campo__select" id="fixa-categoria" required>
+                  ${opcoesCategorias("despesa", dados.categoria)}
+                </select>
+                <span class="campo__erro" id="erro-fixa-categoria"></span>
+              </div>
+              <div class="campo">
+                <label class="campo__rotulo" for="fixa-valor">Valor (R$) <span class="obrigatorio">*</span></label>
+                <input class="campo__entrada" type="number" id="fixa-valor" min="0.01" step="0.01" inputmode="decimal" value="${dados.valor || ""}" required />
+                <span class="campo__erro" id="erro-fixa-valor"></span>
+              </div>
+            </div>
+
+            <div class="grade-formulario grade-formulario--2col">
+              <div class="campo">
+                <label class="campo__rotulo" for="fixa-subcategoria">Subcategoria</label>
+                <input class="campo__entrada" type="text" id="fixa-subcategoria" value="${escaparHtml(dados.subcategoria)}" maxlength="80" />
+              </div>
+              <div class="campo">
+                <label class="campo__rotulo" for="fixa-dia">Dia do vencimento <span class="obrigatorio">*</span></label>
+                <input class="campo__entrada" type="number" id="fixa-dia" min="1" max="31" step="1" value="${dados.diaVencimento}" required />
+                <span class="campo__erro" id="erro-fixa-diaVencimento"></span>
+              </div>
+            </div>
+
+            <div class="campo">
+              <label class="campo__rotulo" for="fixa-forma-pagamento">Forma de pagamento</label>
+              <select class="campo__select" id="fixa-forma-pagamento">
+                <option value="">Selecione</option>
+                ${opcoesFormasPagamento(dados.formaPagamento)}
+              </select>
+            </div>
+
+            <label class="campo" style="flex-direction:row; align-items:center; gap:var(--espaco-2)">
+              <input type="checkbox" id="fixa-ativa" ${dados.ativa ? "checked" : ""} style="width:20px;height:20px" />
+              <span class="campo__rotulo" style="margin:0">Ativa (gera lançamento todo mês)</span>
+            </label>
+          </div>
+
+          <div class="modal__rodape">
+            <button type="button" class="botao botao--secundario" data-acao-fechar-modal>Cancelar</button>
+            <button type="submit" class="botao botao--primario">${editando ? "Salvar alterações" : "Adicionar despesa fixa"}</button>
+          </div>
+        </form>
+      `;
+
+      const fundo = abrirModal({
+        titulo: editando ? "Editar despesa fixa" : "Nova despesa fixa",
+        conteudoHtml,
+      });
+
+      const form = fundo.querySelector("#form-fixa");
+      form.addEventListener("submit", (evento) => {
+        evento.preventDefault();
+
+        const candidato = {
+          ...dados,
+          descricao: fundo.querySelector("#fixa-descricao").value.trim(),
+          categoria: fundo.querySelector("#fixa-categoria").value,
+          subcategoria: fundo.querySelector("#fixa-subcategoria").value.trim(),
+          valor: fundo.querySelector("#fixa-valor").value,
+          diaVencimento: fundo.querySelector("#fixa-dia").value,
+          formaPagamento: fundo.querySelector("#fixa-forma-pagamento").value,
+          ativa: fundo.querySelector("#fixa-ativa").checked,
+        };
+
+        const fixaCandidata = criarDespesaFixa(candidato);
+        const { valido, erros } = validarDespesaFixa(fixaCandidata);
+
+        ["descricao", "categoria", "valor", "diaVencimento"].forEach((campo) => {
+          const elErro = fundo.querySelector(`#erro-fixa-${campo}`);
+          if (elErro) elErro.textContent = erros[campo] || "";
+        });
+
+        if (!valido) return;
+
+        try {
+          salvarDespesaFixa(editando ? { ...fixaCandidata, id: dados.id } : fixaCandidata);
+          exibirToast(editando ? "Despesa fixa atualizada." : "Despesa fixa cadastrada.", "sucesso");
+          fecharModal();
+          renderizarFixas();
+          gerarLancamentosDoMes(filtroMes.value || competenciaAtual());
+          renderizarTabela();
+        } catch (erro) {
+          if (erro instanceof ErroArmazenamento) {
+            exibirToast(erro.message, "erro");
+          } else {
+            console.error(erro);
+            exibirToast("Ocorreu um erro ao salvar a despesa fixa.", "erro");
+          }
+        }
+      });
+    }
+
+    async function excluirFixaComConfirmacao(id) {
+      const fixa = obterDespesaFixa(id);
+      if (!fixa) return;
+
+      const confirmado = await confirmarAcao({
+        titulo: "Excluir despesa fixa",
+        mensagem: `Excluir "${fixa.descricao}"? Os lançamentos já gerados por ela não serão apagados, mas ela deixa de gerar novos.`,
+        textoConfirmar: "Excluir",
+        perigo: true,
+      });
+
+      if (!confirmado) return;
+
+      excluirDespesaFixa(id);
+      exibirToast("Despesa fixa excluída.", "sucesso");
+      renderizarFixas();
     }
 
     // ---------------------------------------------------------
@@ -416,6 +636,37 @@
     document.getElementById("botao-novo-lancamento").addEventListener("click", () => abrirFormularioLancamento(null));
     document.getElementById("botao-flutuante-novo").addEventListener("click", () => abrirFormularioLancamento(null));
 
+    document.getElementById("botao-nova-fixa").addEventListener("click", () => abrirFormularioFixa(null));
+
+    document.getElementById("botao-gerar-mes").addEventListener("click", () => {
+      const competencia = filtroMes.value || competenciaAtual();
+      const { gerados } = gerarLancamentosDoMes(competencia);
+      renderizarTabela();
+      exibirToast(
+        gerados > 0
+          ? `${gerados} lançamento(s) gerado(s) para ${formatarCompetencia(competencia)}.`
+          : `Nenhuma despesa fixa pendente para ${formatarCompetencia(competencia)}.`,
+        "sucesso"
+      );
+    });
+
+    corpoTabelaFixas.addEventListener("click", (evento) => {
+      const botao = evento.target.closest("button[data-acao]");
+      if (!botao) return;
+      const id = botao.dataset.id;
+      if (botao.dataset.acao === "editar-fixa") {
+        abrirFormularioFixa(obterDespesaFixa(id));
+      } else if (botao.dataset.acao === "excluir-fixa") {
+        excluirFixaComConfirmacao(id);
+      } else if (botao.dataset.acao === "pausar-fixa") {
+        const fixa = obterDespesaFixa(id);
+        if (!fixa) return;
+        salvarDespesaFixa({ ...fixa, ativa: !fixa.ativa });
+        exibirToast(fixa.ativa ? "Despesa fixa pausada." : "Despesa fixa reativada.", "sucesso");
+        renderizarFixas();
+      }
+    });
+
     document.getElementById("botao-limpar-filtros").addEventListener("click", () => {
       filtroMes.value = "";
       filtroTipo.value = "";
@@ -454,6 +705,7 @@
     // ---------------------------------------------------------
 
     popularFiltroCategorias();
+    renderizarFixas();
     renderizarTabela();
   </script>
 </body>

@@ -13,6 +13,7 @@ Todas as chaves usam o prefixo `gfm:`:
 | `gfm:lancamentos`       | Array de `Lancamento`                       |
 | `gfm:categorias`        | Array de `Categoria`                        |
 | `gfm:orcamentos`        | Array de `Orcamento`                        |
+| `gfm:despesasFixas`     | Array de `DespesaFixa`                      |
 | `gfm:formasPagamento`   | Array de strings (ex.: `"Pix"`, `"Débito"`) |
 | `gfm:config`            | Objeto de configuração geral do app         |
 
@@ -31,6 +32,8 @@ valor           number   sempre positivo — o sinal vem do campo `tipo`
 status          string   "pago" | "pendente" | "agendado"
 recorrente      boolean  indica lançamento fixo/recorrente
 observacoes     string   opcional
+despesaFixaId   string   opcional — preenchido só quando o lançamento foi
+                         gerado automaticamente a partir de uma DespesaFixa
 criadoEm        string   ISO 8601 (timestamp completo)
 atualizadoEm    string   ISO 8601 (timestamp completo)
 ```
@@ -71,6 +74,41 @@ valorPlanejado  number   valor planejado para a categoria naquela competência
 Não pode haver dois orçamentos para a mesma combinação `competencia` +
 `categoria` — `salvarOrcamento()` detecta e atualiza o registro existente
 nesse caso, em vez de duplicar.
+
+## DespesaFixa
+
+Modelo/template de um gasto recorrente (aluguel, mensalidade, assinatura...).
+Diferente de `Lancamento.recorrente` (que só marca um lançamento específico
+como fixo), uma `DespesaFixa` **gera automaticamente** um `Lancamento` a cada
+competência, sem ação do usuário.
+
+```txt
+id              string   uuid
+descricao       string   obrigatória
+categoria       string   nome da categoria (deve ser do tipo "despesa")
+subcategoria    string   opcional
+formaPagamento  string   opcional
+valor           number   obrigatório, maior que zero
+diaVencimento   number   1 a 31 — dia do mês em que o gasto costuma vencer;
+                         em meses mais curtos é ajustado para o último dia
+ativa           boolean  despesas inativas não geram novos lançamentos
+```
+
+### Geração automática (`db.gerarLancamentosDoMes`)
+
+Toda vez que o app inicia (`app.js` → `iniciarApp`), é chamado
+`gerarLancamentosDoMes(competenciaAtual())`. Para cada `DespesaFixa` ativa
+sem lançamento gerado naquela competência, cria um `Lancamento` com:
+
+- `data` = competência + `diaVencimento` (ajustado ao mês)
+- `status` = `"pendente"` (o usuário marca como `"pago"` quando de fato pagar)
+- `recorrente` = `true`
+- `despesaFixaId` = id da despesa fixa (usado para não duplicar)
+
+A função é idempotente — pode ser chamada várias vezes para a mesma
+competência sem gerar lançamentos repetidos — e também pode ser chamada
+manualmente para competências passadas/futuras (usado pelo botão "Gerar
+lançamentos do mês" em `lancamentos.html`).
 
 ## Config
 

@@ -6,7 +6,8 @@
 // resto do app (basta reimplementar as funções deste módulo).
 // ===========================================================
 
-import { criarLancamento, criarCategoria, criarOrcamento, gerarId } from "./modelos.js";
+import { criarLancamento, criarCategoria, criarOrcamento, criarDespesaFixa, gerarId } from "./modelos.js";
+import { diasNoMes } from "./formatadores.js";
 
 const PREFIXO = "gfm:";
 
@@ -14,6 +15,7 @@ const CHAVES = {
   lancamentos: `${PREFIXO}lancamentos`,
   categorias: `${PREFIXO}categorias`,
   orcamentos: `${PREFIXO}orcamentos`,
+  despesasFixas: `${PREFIXO}despesasFixas`,
   formasPagamento: `${PREFIXO}formasPagamento`,
   config: `${PREFIXO}config`,
 };
@@ -296,6 +298,121 @@ export function substituirOrcamentos(lista) {
 }
 
 // ---------------------------------------------------------
+// Despesas fixas (gastos recorrentes, lançados automaticamente)
+// ---------------------------------------------------------
+
+/**
+ * Lista despesas fixas, ordenadas por dia de vencimento. Passe
+ * { apenasAtivas: true } para filtrar as inativas.
+ * @param {{apenasAtivas?: boolean}} opcoes
+ * @returns {object[]}
+ */
+export function listarDespesasFixas(opcoes = {}) {
+  let lista = lerBruto(CHAVES.despesasFixas, []);
+  if (opcoes.apenasAtivas) lista = lista.filter((d) => d.ativa);
+  return [...lista].sort((a, b) => a.diaVencimento - b.diaVencimento || a.descricao.localeCompare(b.descricao, "pt-BR"));
+}
+
+/**
+ * Busca uma despesa fixa pelo id.
+ * @param {string} id
+ * @returns {object|undefined}
+ */
+export function obterDespesaFixa(id) {
+  return lerBruto(CHAVES.despesasFixas, []).find((item) => item.id === id);
+}
+
+/**
+ * Cria ou atualiza uma despesa fixa.
+ * @param {Partial<object>} dados
+ * @returns {object}
+ */
+export function salvarDespesaFixa(dados) {
+  const lista = lerBruto(CHAVES.despesasFixas, []);
+  const indiceExistente = dados.id ? lista.findIndex((item) => item.id === dados.id) : -1;
+
+  let salva;
+  if (indiceExistente >= 0) {
+    salva = criarDespesaFixa({ ...lista[indiceExistente], ...dados });
+    lista[indiceExistente] = salva;
+  } else {
+    salva = criarDespesaFixa(dados);
+    lista.push(salva);
+  }
+
+  escreverBruto(CHAVES.despesasFixas, lista);
+  return salva;
+}
+
+/**
+ * Exclui uma despesa fixa pelo id. Não remove lançamentos já gerados a
+ * partir dela — apenas para de gerar novos a partir de agora.
+ * @param {string} id
+ * @returns {boolean}
+ */
+export function excluirDespesaFixa(id) {
+  const lista = lerBruto(CHAVES.despesasFixas, []);
+  const nova = lista.filter((item) => item.id !== id);
+  const removeu = nova.length !== lista.length;
+  if (removeu) escreverBruto(CHAVES.despesasFixas, nova);
+  return removeu;
+}
+
+/**
+ * Substitui toda a lista de despesas fixas (usado por importação/restauração).
+ * @param {object[]} lista
+ */
+export function substituirDespesasFixas(lista) {
+  escreverBruto(CHAVES.despesasFixas, lista);
+}
+
+/**
+ * Gera automaticamente, para a competência informada, um lançamento
+ * "pendente" para cada despesa fixa ativa que ainda não tem lançamento
+ * gerado naquele mês. Idempotente: pode ser chamada várias vezes sem
+ * duplicar (usa o campo despesaFixaId do lançamento para detectar o que
+ * já foi gerado). É assim que uma despesa fixa "aparece todo mês sem
+ * precisar lançar".
+ * @param {string} competencia AAAA-MM
+ * @returns {{ gerados: number }}
+ */
+export function gerarLancamentosDoMes(competencia) {
+  const fixas = lerBruto(CHAVES.despesasFixas, []).filter((f) => f.ativa);
+  if (fixas.length === 0) return { gerados: 0 };
+
+  const lancamentos = lerBruto(CHAVES.lancamentos, []);
+  const jaGeradas = new Set(
+    lancamentos.filter((l) => l.competencia === competencia && l.despesaFixaId).map((l) => l.despesaFixaId)
+  );
+
+  let gerados = 0;
+  const totalDiasMes = diasNoMes(competencia);
+
+  fixas.forEach((fixa) => {
+    if (jaGeradas.has(fixa.id)) return;
+
+    const dia = String(Math.min(fixa.diaVencimento, totalDiasMes)).padStart(2, "0");
+    const novo = criarLancamento({
+      data: `${competencia}-${dia}`,
+      tipo: "despesa",
+      categoria: fixa.categoria,
+      subcategoria: fixa.subcategoria,
+      descricao: fixa.descricao,
+      formaPagamento: fixa.formaPagamento,
+      valor: fixa.valor,
+      status: "pendente",
+      recorrente: true,
+      despesaFixaId: fixa.id,
+    });
+    lancamentos.push(novo);
+    gerados++;
+  });
+
+  if (gerados > 0) escreverBruto(CHAVES.lancamentos, lancamentos);
+  return { gerados };
+}
+
+// ---------------------------------------------------------
 // Formas de pagamento
 // ---------------------------------------------------------
 
@@ -369,6 +486,7 @@ export function exportarTudo() {
     lancamentos: lerBruto(CHAVES.lancamentos, []),
     categorias: lerBruto(CHAVES.categorias, []),
     orcamentos: lerBruto(CHAVES.orcamentos, []),
+    despesasFixas: lerBruto(CHAVES.despesasFixas, []),
     formasPagamento: listarFormasPagamento(),
     config: obterConfig(),
   };
@@ -385,6 +503,7 @@ export function restaurarTudo(backup) {
   if (Array.isArray(backup.lancamentos)) escreverBruto(CHAVES.lancamentos, backup.lancamentos);
   if (Array.isArray(backup.categorias)) escreverBruto(CHAVES.categorias, backup.categorias);
   if (Array.isArray(backup.orcamentos)) escreverBruto(CHAVES.orcamentos, backup.orcamentos);
+  if (Array.isArray(backup.despesasFixas)) escreverBruto(CHAVES.despesasFixas, backup.despesasFixas);
   if (Array.isArray(backup.formasPagamento)) escreverBruto(CHAVES.formasPagamento, backup.formasPagamento);
   if (backup.config && typeof backup.config === "object") escreverBruto(CHAVES.config, backup.config);
 }

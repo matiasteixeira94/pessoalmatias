@@ -113,6 +113,16 @@ export function competenciaAtual() {
 }
 
 /**
+ * Retorna quantos dias tem uma competência AAAA-MM (28 a 31).
+ * @param {string} competencia
+ * @returns {number}
+ */
+export function diasNoMes(competencia) {
+  const [ano, mes] = competencia.split("-").map(Number);
+  return new Date(ano, mes, 0).getDate();
+}
+
+/**
  * Soma ou subtrai meses de uma competência AAAA-MM.
  * @param {string} competencia
  * @param {number} delta

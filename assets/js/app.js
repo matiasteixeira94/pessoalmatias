@@ -6,6 +6,8 @@
 // ===========================================================
 
 import { semearDadosIniciais } from "./seed.js";
+import { gerarLancamentosDoMes } from "./db.js";
+import { competenciaAtual } from "./formatadores.js";
 
 const PAGINAS = [
   { id: "painel", href: "index.html", rotulo: "Painel", icone: "🏠" },
@@ -69,6 +71,9 @@ function montarNavInferior(paginaAtual) {
  */
 export async function iniciarApp(paginaAtual) {
   await semearDadosIniciais();
+  // Garante que os gastos fixos do mês corrente já apareçam como
+  // lançamentos "pendente", sem o usuário precisar lançá-los.
+  gerarLancamentosDoMes(competenciaAtual());
   montarNavLateral(paginaAtual);
   montarNavInferior(paginaAtual);
 }
