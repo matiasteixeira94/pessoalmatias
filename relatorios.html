@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Relatórios — Gestão Financeira Matias</title>
-  <meta name="theme-color" content="#16596a" />
+  <meta name="theme-color" content="#015c91" />
   <link rel="stylesheet" href="./assets/css/reset.css" />
   <link rel="stylesheet" href="./assets/css/variaveis.css" />
   <link rel="stylesheet" href="./assets/css/componentes.css" />
@@ -22,23 +22,204 @@
           <h1 class="cabecalho-pagina__titulo">Relatórios</h1>
           <p class="cabecalho-pagina__subtitulo">Evolução do saldo, ranking de categorias e mais.</p>
         </div>
+        <button type="button" class="botao botao--secundario" id="botao-exportar-csv">⬇ Exportar CSV</button>
       </div>
 
       <section class="secao">
         <div class="card">
-          <h2 class="secao__titulo">Em construção</h2>
-          <p class="campo__ajuda" style="margin-top:var(--espaco-2)">
-            Os gráficos de evolução mensal, ranking de categorias, gastos por forma de
-            pagamento e exportação de relatório em CSV serão implementados na Fase 2.
-          </p>
+          <div class="barra-filtros">
+            <div class="campo">
+              <label class="campo__rotulo" for="filtro-data-inicio">De</label>
+              <input class="campo__entrada" type="date" id="filtro-data-inicio" />
+            </div>
+            <div class="campo">
+              <label class="campo__rotulo" for="filtro-data-fim">Até</label>
+              <input class="campo__entrada" type="date" id="filtro-data-fim" />
+            </div>
+            <button type="button" class="botao botao--secundario" id="botao-aplicar-filtro">Aplicar</button>
+          </div>
         </div>
       </section>
+
+      <section class="secao">
+        <div class="card">
+          <h2 class="secao__titulo">Evolução mensal do saldo</h2>
+          <p class="campo__ajuda">Últimos 12 meses (não depende do filtro de data acima).</p>
+          <div style="height:240px; margin-top:var(--espaco-4)">
+            <canvas id="grafico-evolucao-saldo"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <div class="grade-cards" style="grid-template-columns:1fr; gap:var(--espaco-4)">
+        <div class="card">
+          <h2 class="secao__titulo">Ranking de categorias (gasto acumulado no período)</h2>
+          <div style="height:280px; margin-top:var(--espaco-4)">
+            <canvas id="grafico-ranking-periodo"></canvas>
+          </div>
+          <div class="estado-vazio" id="estado-vazio-ranking-periodo" hidden>Nenhuma despesa no período selecionado.</div>
+        </div>
+
+        <div class="card">
+          <h2 class="secao__titulo">Gastos por forma de pagamento</h2>
+          <div style="height:240px; margin-top:var(--espaco-4)">
+            <canvas id="grafico-forma-pagamento"></canvas>
+          </div>
+          <div class="estado-vazio" id="estado-vazio-forma-pagamento" hidden>Nenhuma despesa no período selecionado.</div>
+        </div>
+
+        <div class="card">
+          <h2 class="secao__titulo">Despesas fixas x variáveis</h2>
+          <p class="campo__ajuda">No período selecionado.</p>
+          <div style="height:200px; margin-top:var(--espaco-4)">
+            <canvas id="grafico-fixas-variaveis"></canvas>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script type="module">
     import { iniciarApp } from "./assets/js/app.js";
+    import { listarLancamentos } from "./assets/js/db.js";
+    import {
+      evolucaoMensal,
+      rankingCategorias,
+      gastosPorFormaPagamento,
+      despesasFixasVariaveis,
+      agruparTopCategorias,
+    } from "./assets/js/calculos.js";
+    import { graficoLinha, graficoRanking, graficoComparativoDuplo } from "./assets/js/graficos.js";
+    import { formatarMoeda, formatarNumeroMoeda, formatarData, formatarCompetencia, competenciaAtual, deslocarCompetencia, hojeIso } from "./assets/js/formatadores.js";
+    import { exibirToast } from "./assets/js/ui.js";
+
     await iniciarApp("relatorios");
+
+    const filtroInicio = document.getElementById("filtro-data-inicio");
+    const filtroFim = document.getElementById("filtro-data-fim");
+
+    // Padrão: últimos 3 meses (incluindo o atual) até hoje.
+    filtroInicio.value = `${deslocarCompetencia(competenciaAtual(), -2)}-01`;
+    filtroFim.value = hojeIso();
+
+    function renderizarEvolucaoSaldo(lancamentos) {
+      const meses = evolucaoMensal(lancamentos, 12, competenciaAtual());
+      graficoLinha(document.getElementById("grafico-evolucao-saldo"), {
+        labels: meses.map((m) => formatarCompetencia(m.competencia).replace(/\/\d{2}(\d{2})$/, "/$1")),
+        dados: meses.map((m) => m.saldo),
+        rotulo: "Saldo",
+      });
+    }
+
+    function renderizarRankingPeriodo(lancamentos, inicio, fim) {
+      const totais = agruparTopCategorias(rankingCategorias(lancamentos, inicio, fim, "despesa"));
+      const canvas = document.getElementById("grafico-ranking-periodo");
+      const estadoVazio = document.getElementById("estado-vazio-ranking-periodo");
+
+      if (totais.length === 0) {
+        canvas.closest("div").style.display = "none";
+        estadoVazio.hidden = false;
+        return;
+      }
+      canvas.closest("div").style.display = "";
+      estadoVazio.hidden = true;
+
+      // Chart.js desenha o primeiro rótulo no topo — `totais` já vem
+      // ordenado do maior para o menor.
+      graficoRanking(canvas, { rotulos: totais.map((c) => c.categoria), valores: totais.map((c) => c.total) });
+    }
+
+    function renderizarFormaPagamento(lancamentos, inicio, fim) {
+      const totais = gastosPorFormaPagamento(lancamentos, inicio, fim);
+      const canvas = document.getElementById("grafico-forma-pagamento");
+      const estadoVazio = document.getElementById("estado-vazio-forma-pagamento");
+
+      if (totais.length === 0) {
+        canvas.closest("div").style.display = "none";
+        estadoVazio.hidden = false;
+        return;
+      }
+      canvas.closest("div").style.display = "";
+      estadoVazio.hidden = true;
+
+      graficoRanking(canvas, {
+        rotulos: totais.map((c) => c.formaPagamento),
+        valores: totais.map((c) => c.total),
+      });
+    }
+
+    function renderizarFixasVariaveis(lancamentos, inicio, fim) {
+      const { fixas, variaveis } = despesasFixasVariaveis(lancamentos, inicio, fim);
+      graficoComparativoDuplo(document.getElementById("grafico-fixas-variaveis"), {
+        rotulos: ["Fixas", "Variáveis"],
+        valores: [fixas, variaveis],
+      });
+    }
+
+    function periodoAtual() {
+      const inicio = filtroInicio.value || `${deslocarCompetencia(competenciaAtual(), -2)}-01`;
+      const fim = filtroFim.value || hojeIso();
+      return { inicio, fim };
+    }
+
+    function renderizarTudo() {
+      const lancamentos = listarLancamentos();
+      const { inicio, fim } = periodoAtual();
+
+      renderizarEvolucaoSaldo(lancamentos);
+      renderizarRankingPeriodo(lancamentos, inicio, fim);
+      renderizarFormaPagamento(lancamentos, inicio, fim);
+      renderizarFixasVariaveis(lancamentos, inicio, fim);
+    }
+
+    document.getElementById("botao-aplicar-filtro").addEventListener("click", renderizarTudo);
+
+    document.getElementById("botao-exportar-csv").addEventListener("click", () => {
+      const { inicio, fim } = periodoAtual();
+      const lancamentos = listarLancamentos().filter((l) => l.data >= inicio && l.data <= fim);
+
+      if (lancamentos.length === 0) {
+        exibirToast("Nenhum lançamento no período selecionado para exportar.", "info");
+        return;
+      }
+
+      const cabecalho = ["Data", "Tipo", "Categoria", "Subcategoria", "Descrição", "Forma de Pagamento", "Valor", "Status", "Recorrente", "Observações"];
+      const escaparCsv = (texto) => {
+        const valor = String(texto ?? "");
+        return /[;"\n]/.test(valor) ? `"${valor.replace(/"/g, '""')}"` : valor;
+      };
+      const linhas = lancamentos.map((l) =>
+        [
+          formatarData(l.data),
+          l.tipo === "receita" ? "Receita" : "Despesa",
+          l.categoria,
+          l.subcategoria,
+          l.descricao,
+          l.formaPagamento,
+          formatarNumeroMoeda(l.valor),
+          l.status,
+          l.recorrente ? "Sim" : "Não",
+          l.observacoes,
+        ]
+          .map(escaparCsv)
+          .join(";")
+      );
+
+      const conteudoCsv = "﻿" + [cabecalho.join(";"), ...linhas].join("\r\n");
+      const blob = new Blob([conteudoCsv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `relatorio-${inicio}_a_${fim}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      exibirToast("Relatório exportado.", "sucesso");
+    });
+
+    renderizarTudo();
   </script>
 </body>
 </html>
