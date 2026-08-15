@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Lançamentos — Gestão Financeira Matias</title>
+  <meta name="theme-color" content="#16596a" />
+  <link rel="stylesheet" href="./assets/css/reset.css" />
+  <link rel="stylesheet" href="./assets/css/variaveis.css" />
+  <link rel="stylesheet" href="./assets/css/componentes.css" />
+  <link rel="stylesheet" href="./assets/css/principal.css" />
+</head>
+<body>
+  <div class="pagina">
+    <div class="topo-mobile">
+      <span class="topo-mobile__marca">Gestão Financeira Matias</span>
+    </div>
+
+    <main class="conteudo">
+      <div class="cabecalho-pagina">
+        <div>
+          <h1 class="cabecalho-pagina__titulo">Lançamentos</h1>
+          <p class="cabecalho-pagina__subtitulo">Cadastre e acompanhe suas receitas e despesas.</p>
+        </div>
+        <button type="button" class="botao botao--primario" id="botao-novo-lancamento">+ Novo lançamento</button>
+      </div>
+
+      <section class="secao">
+        <div class="card">
+          <div class="barra-filtros">
+            <div class="campo">
+              <label class="campo__rotulo" for="filtro-mes">Mês</label>
+              <input class="campo__entrada" type="month" id="filtro-mes" />
+            </div>
+            <div class="campo">
+              <label class="campo__rotulo" for="filtro-tipo">Tipo</label>
+              <select class="campo__select" id="filtro-tipo">
+                <option value="">Todos</option>
+                <option value="receita">Receita</option>
+                <option value="despesa">Despesa</option>
+              </select>
+            </div>
+            <div class="campo">
+              <label class="campo__rotulo" for="filtro-categoria">Categoria</label>
+              <select class="campo__select" id="filtro-categoria">
+                <option value="">Todas</option>
+              </select>
+            </div>
+            <div class="campo">
+              <label class="campo__rotulo" for="filtro-status">Status</label>
+              <select class="campo__select" id="filtro-status">
+                <option value="">Todos</option>
+                <option value="pago">Pago</option>
+                <option value="pendente">Pendente</option>
+                <option value="agendado">Agendado</option>
+              </select>
+            </div>
+            <div class="campo">
+              <label class="campo__rotulo" for="filtro-busca">Buscar</label>
+              <input class="campo__entrada" type="search" id="filtro-busca" placeholder="Descrição, subcategoria..." />
+            </div>
+            <button type="button" class="botao botao--secundario" id="botao-limpar-filtros">Limpar filtros</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="grade-cards">
+          <div class="card">
+            <div class="card__titulo">Receitas (filtro atual)</div>
+            <div class="card__valor valor-positivo" id="resumo-receitas">R$ 0,00</div>
+          </div>
+          <div class="card">
+            <div class="card__titulo">Despesas (filtro atual)</div>
+            <div class="card__valor valor-negativo" id="resumo-despesas">R$ 0,00</div>
+          </div>
+          <div class="card">
+            <div class="card__titulo">Saldo (filtro atual)</div>
+            <div class="card__valor" id="resumo-saldo">R$ 0,00</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="tabela-wrap">
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Forma</th>
+                <th>Status</th>
+                <th class="col-valor">Valor</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="corpo-tabela-lancamentos">
+              <!-- preenchido via JS -->
+            </tbody>
+          </table>
+          <div class="estado-vazio" id="estado-vazio" hidden>
+            Nenhum lançamento encontrado para os filtros selecionados.
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <button type="button" class="botao-flutuante" id="botao-flutuante-novo" aria-label="Novo lançamento">+</button>
+
+  <script type="module">
+    import { iniciarApp } from "./assets/js/app.js";
+    import {
+      listarLancamentos,
+      salvarLancamento,
+      excluirLancamento,
+      obterLancamento,
+      listarCategorias,
+      listarFormasPagamento,
+      ErroArmazenamento,
+    } from "./assets/js/db.js";
+    import { criarLancamento, validarLancamento, STATUS_LANCAMENTO } from "./assets/js/modelos.js";
+    import { formatarMoeda, formatarData, hojeIso, competenciaAtual } from "./assets/js/formatadores.js";
+    import { exibirToast, abrirModal, fecharModal, confirmarAcao, escaparHtml, seloStatus, chipCor } from "./assets/js/ui.js";
+
+    await iniciarApp("lancamentos");
+
+    const corpoTabela = document.getElementById("corpo-tabela-lancamentos");
+    const estadoVazio = document.getElementById("estado-vazio");
+    const filtroMes = document.getElementById("filtro-mes");
+    const filtroTipo = document.getElementById("filtro-tipo");
+    const filtroCategoria = document.getElementById("filtro-categoria");
+    const filtroStatus = document.getElementById("filtro-status");
+    const filtroBusca = document.getElementById("filtro-busca");
+
+    filtroMes.value = competenciaAtual();
+
+    function popularFiltroCategorias() {
+      const categorias = listarCategorias();
+      filtroCategoria.innerHTML =
+        '<option value="">Todas</option>' +
+        categorias.map((c) => `<option value="${escaparHtml(c.nome)}">${escaparHtml(c.nome)}</option>`).join("");
+    }
+
+    function obterLancamentosFiltrados() {
+      const mes = filtroMes.value;
+      const tipo = filtroTipo.value;
+      const categoria = filtroCategoria.value;
+      const status = filtroStatus.value;
+      const busca = filtroBusca.value.trim().toLowerCase();
+
+      return listarLancamentos().filter((l) => {
+        if (mes && l.competencia !== mes) return false;
+        if (tipo && l.tipo !== tipo) return false;
+        if (categoria && l.categoria !== categoria) return false;
+        if (status && l.status !== status) return false;
+        if (busca) {
+          const alvo = `${l.descricao} ${l.subcategoria} ${l.observacoes}`.toLowerCase();
+          if (!alvo.includes(busca)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderizarResumo(lista) {
+      const receitas = lista.filter((l) => l.tipo === "receita").reduce((soma, l) => soma + l.valor, 0);
+      const despesas = lista.filter((l) => l.tipo === "despesa").reduce((soma, l) => soma + l.valor, 0);
+      const saldo = receitas - despesas;
+
+      document.getElementById("resumo-receitas").textContent = formatarMoeda(receitas);
+      document.getElementById("resumo-despesas").textContent = formatarMoeda(despesas);
+      const elSaldo = document.getElementById("resumo-saldo");
+      elSaldo.textContent = formatarMoeda(saldo);
+      elSaldo.className = `card__valor ${saldo >= 0 ? "valor-positivo" : "valor-negativo"}`;
+    }
+
+    function linhaLancamento(lancamento) {
+      const categorias = listarCategorias();
+      const categoriaInfo = categorias.find((c) => c.nome === lancamento.categoria);
+      const cor = categoriaInfo?.cor || "#999";
+      const classeValor = lancamento.tipo === "receita" ? "valor-positivo" : "valor-negativo";
+      const sinal = lancamento.tipo === "receita" ? "+" : "−";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${formatarData(lancamento.data)}</td>
+        <td>
+          ${escaparHtml(lancamento.descricao)}
+          ${lancamento.subcategoria ? `<br><small style="color:var(--cor-texto-fraco)">${escaparHtml(lancamento.subcategoria)}</small>` : ""}
+        </td>
+        <td>${chipCor(cor)} ${escaparHtml(lancamento.categoria)}</td>
+        <td>${escaparHtml(lancamento.formaPagamento || "—")}</td>
+        <td>${seloStatus(lancamento.status)}</td>
+        <td class="col-valor ${classeValor}">${sinal} ${formatarMoeda(lancamento.valor)}</td>
+        <td class="col-acoes">
+          <button type="button" class="botao botao--icone" data-acao="editar" data-id="${lancamento.id}" aria-label="Editar lançamento">✏️</button>
+          <button type="button" class="botao botao--icone" data-acao="excluir" data-id="${lancamento.id}" aria-label="Excluir lançamento">🗑️</button>
+        </td>
+      `;
+      return tr;
+    }
+
+    function renderizarTabela() {
+      const lista = obterLancamentosFiltrados();
+      corpoTabela.innerHTML = "";
+
+      if (lista.length === 0) {
+        estadoVazio.hidden = false;
+      } else {
+        estadoVazio.hidden = true;
+        lista.forEach((lancamento) => corpoTabela.appendChild(linhaLancamento(lancamento)));
+      }
+
+      renderizarResumo(lista);
+    }
+
+    // ---------------------------------------------------------
+    // Formulário (modal de novo/editar lançamento)
+    // ---------------------------------------------------------
+
+    function opcoesCategorias(tipo, selecionada) {
+      const categorias = listarCategorias({ apenasAtivas: true, tipo });
+      if (categorias.length === 0) return '<option value="">Nenhuma categoria cadastrada</option>';
+      return categorias
+        .map(
+          (c) =>
+            `<option value="${escaparHtml(c.nome)}" ${c.nome === selecionada ? "selected" : ""}>${escaparHtml(c.icone)} ${escaparHtml(c.nome)}</option>`
+        )
+        .join("");
+    }
+
+    function opcoesFormasPagamento(selecionada) {
+      return listarFormasPagamento()
+        .map((f) => `<option value="${escaparHtml(f)}" ${f === selecionada ? "selected" : ""}>${escaparHtml(f)}</option>`)
+        .join("");
+    }
+
+    function opcoesStatus(selecionado) {
+      const rotulos = { pago: "Pago", pendente: "Pendente", agendado: "Agendado" };
+      return STATUS_LANCAMENTO.map(
+        (s) => `<option value="${s}" ${s === selecionado ? "selected" : ""}>${rotulos[s]}</option>`
+      ).join("");
+    }
+
+    function abrirFormularioLancamento(lancamentoExistente) {
+      const editando = Boolean(lancamentoExistente);
+      const dados = lancamentoExistente || criarLancamento({ data: hojeIso(), tipo: "despesa", status: "pago" });
+
+      const conteudoHtml = `
+        <form id="form-lancamento" novalidate>
+          <div class="grade-formulario">
+            <div class="campo">
+              <span class="campo__rotulo">Tipo <span class="obrigatorio">*</span></span>
+              <div class="segmentado" role="group" aria-label="Tipo de lançamento">
+                <button type="button" class="segmentado__opcao" data-tipo="despesa" aria-pressed="${dados.tipo === "despesa"}">Despesa</button>
+                <button type="button" class="segmentado__opcao" data-tipo="receita" aria-pressed="${dados.tipo === "receita"}">Receita</button>
+              </div>
+              <input type="hidden" id="campo-tipo" value="${dados.tipo}" />
+            </div>
+
+            <div class="grade-formulario grade-formulario--2col">
+              <div class="campo">
+                <label class="campo__rotulo" for="campo-data">Data <span class="obrigatorio">*</span></label>
+                <input class="campo__entrada" type="date" id="campo-data" value="${dados.data}" required />
+                <span class="campo__erro" id="erro-data"></span>
+              </div>
+              <div class="campo">
+                <label class="campo__rotulo" for="campo-valor">Valor (R$) <span class="obrigatorio">*</span></label>
+                <input class="campo__entrada" type="number" id="campo-valor" min="0.01" step="0.01" inputmode="decimal" value="${dados.valor || ""}" required />
+                <span class="campo__erro" id="erro-valor"></span>
+              </div>
+            </div>
+
+            <div class="campo">
+              <label class="campo__rotulo" for="campo-descricao">Descrição <span class="obrigatorio">*</span></label>
+              <input class="campo__entrada" type="text" id="campo-descricao" value="${escaparHtml(dados.descricao)}" required maxlength="120" />
+              <span class="campo__erro" id="erro-descricao"></span>
+            </div>
+
+            <div class="grade-formulario grade-formulario--2col">
+              <div class="campo">
+                <label class="campo__rotulo" for="campo-categoria">Categoria <span class="obrigatorio">*</span></label>
+                <select class="campo__select" id="campo-categoria" required>
+                  ${opcoesCategorias(dados.tipo, dados.categoria)}
+                </select>
+                <span class="campo__erro" id="erro-categoria"></span>
+              </div>
+              <div class="campo">
+                <label class="campo__rotulo" for="campo-subcategoria">Subcategoria</label>
+                <input class="campo__entrada" type="text" id="campo-subcategoria" value="${escaparHtml(dados.subcategoria)}" maxlength="80" />
+              </div>
+            </div>
+
+            <div class="grade-formulario grade-formulario--2col">
+              <div class="campo">
+                <label class="campo__rotulo" for="campo-forma-pagamento">Forma de pagamento</label>
+                <select class="campo__select" id="campo-forma-pagamento">
+                  <option value="">Selecione</option>
+                  ${opcoesFormasPagamento(dados.formaPagamento)}
+                </select>
+              </div>
+              <div class="campo">
+                <label class="campo__rotulo" for="campo-status">Status <span class="obrigatorio">*</span></label>
+                <select class="campo__select" id="campo-status">
+                  ${opcoesStatus(dados.status)}
+                </select>
+              </div>
+            </div>
+
+            <label class="campo" style="flex-direction:row; align-items:center; gap:var(--espaco-2)">
+              <input type="checkbox" id="campo-recorrente" ${dados.recorrente ? "checked" : ""} style="width:20px;height:20px" />
+              <span class="campo__rotulo" style="margin:0">Lançamento recorrente (fixo todo mês)</span>
+            </label>
+
+            <div class="campo">
+              <label class="campo__rotulo" for="campo-observacoes">Observações</label>
+              <textarea class="campo__textarea" id="campo-observacoes" maxlength="500">${escaparHtml(dados.observacoes)}</textarea>
+            </div>
+          </div>
+
+          <div class="modal__rodape">
+            <button type="button" class="botao botao--secundario" data-acao-fechar-modal>Cancelar</button>
+            <button type="submit" class="botao botao--primario">${editando ? "Salvar alterações" : "Adicionar lançamento"}</button>
+          </div>
+        </form>
+      `;
+
+      const fundo = abrirModal({
+        titulo: editando ? "Editar lançamento" : "Novo lançamento",
+        conteudoHtml,
+      });
+
+      const campoTipoOculto = fundo.querySelector("#campo-tipo");
+      const campoCategoria = fundo.querySelector("#campo-categoria");
+      const botoesSegmentado = fundo.querySelectorAll(".segmentado__opcao");
+
+      botoesSegmentado.forEach((botao) => {
+        botao.addEventListener("click", () => {
+          botoesSegmentado.forEach((b) => b.setAttribute("aria-pressed", "false"));
+          botao.setAttribute("aria-pressed", "true");
+          const novoTipo = botao.dataset.tipo;
+          campoTipoOculto.value = novoTipo;
+          campoCategoria.innerHTML = opcoesCategorias(novoTipo, "");
+        });
+      });
+
+      const form = fundo.querySelector("#form-lancamento");
+      form.addEventListener("submit", (evento) => {
+        evento.preventDefault();
+
+        const candidato = {
+          ...dados,
+          data: fundo.querySelector("#campo-data").value,
+          tipo: campoTipoOculto.value,
+          categoria: campoCategoria.value,
+          subcategoria: fundo.querySelector("#campo-subcategoria").value.trim(),
+          descricao: fundo.querySelector("#campo-descricao").value.trim(),
+          formaPagamento: fundo.querySelector("#campo-forma-pagamento").value,
+          valor: fundo.querySelector("#campo-valor").value,
+          status: fundo.querySelector("#campo-status").value,
+          recorrente: fundo.querySelector("#campo-recorrente").checked,
+          observacoes: fundo.querySelector("#campo-observacoes").value.trim(),
+        };
+
+        const lancamentoCandidato = criarLancamento(candidato);
+        const { valido, erros } = validarLancamento(lancamentoCandidato);
+
+        ["data", "valor", "descricao", "categoria"].forEach((campo) => {
+          const elErro = fundo.querySelector(`#erro-${campo}`);
+          const elInput = fundo.querySelector(`#campo-${campo}`);
+          if (elErro) elErro.textContent = erros[campo] || "";
+          if (elInput) elInput.setAttribute("aria-invalid", erros[campo] ? "true" : "false");
+        });
+
+        if (!valido) return;
+
+        try {
+          salvarLancamento(editando ? { ...lancamentoCandidato, id: dados.id } : lancamentoCandidato);
+          exibirToast(editando ? "Lançamento atualizado." : "Lançamento adicionado.", "sucesso");
+          fecharModal();
+          renderizarTabela();
+        } catch (erro) {
+          if (erro instanceof ErroArmazenamento) {
+            exibirToast(erro.message, "erro");
+          } else {
+            console.error(erro);
+            exibirToast("Ocorreu um erro ao salvar o lançamento.", "erro");
+          }
+        }
+      });
+    }
+
+    async function excluirComConfirmacao(id) {
+      const lancamento = obterLancamento(id);
+      if (!lancamento) return;
+
+      const confirmado = await confirmarAcao({
+        titulo: "Excluir lançamento",
+        mensagem: `Excluir "${lancamento.descricao}" (${formatarMoeda(lancamento.valor)})? Essa ação não pode ser desfeita.`,
+        textoConfirmar: "Excluir",
+        perigo: true,
+      });
+
+      if (!confirmado) return;
+
+      excluirLancamento(id);
+      exibirToast("Lançamento excluído.", "sucesso");
+      renderizarTabela();
+    }
+
+    // ---------------------------------------------------------
+    // Eventos
+    // ---------------------------------------------------------
+
+    document.getElementById("botao-novo-lancamento").addEventListener("click", () => abrirFormularioLancamento(null));
+    document.getElementById("botao-flutuante-novo").addEventListener("click", () => abrirFormularioLancamento(null));
+
+    document.getElementById("botao-limpar-filtros").addEventListener("click", () => {
+      filtroMes.value = "";
+      filtroTipo.value = "";
+      filtroCategoria.value = "";
+      filtroStatus.value = "";
+      filtroBusca.value = "";
+      renderizarTabela();
+    });
+
+    [filtroMes, filtroTipo, filtroCategoria, filtroStatus].forEach((el) =>
+      el.addEventListener("change", renderizarTabela)
+    );
+    filtroBusca.addEventListener("input", renderizarTabela);
+
+    corpoTabela.addEventListener("click", (evento) => {
+      const botao = evento.target.closest("button[data-acao]");
+      if (!botao) return;
+      const id = botao.dataset.id;
+      if (botao.dataset.acao === "editar") {
+        abrirFormularioLancamento(obterLancamento(id));
+      } else if (botao.dataset.acao === "excluir") {
+        excluirComConfirmacao(id);
+      }
+    });
+
+    // Ctrl+N para novo lançamento (atalho de desktop)
+    document.addEventListener("keydown", (evento) => {
+      if (evento.ctrlKey && evento.key.toLowerCase() === "n") {
+        evento.preventDefault();
+        abrirFormularioLancamento(null);
+      }
+    });
+
+    // ---------------------------------------------------------
+    // Inicialização
+    // ---------------------------------------------------------
+
+    popularFiltroCategorias();
+    renderizarTabela();
+  </script>
+</body>
+</html>
