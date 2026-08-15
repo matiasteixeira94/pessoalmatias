@@ -196,8 +196,17 @@
       });
       if (!confirmado) return;
 
-      orcamentosAnteriores.forEach((o) => salvarOrcamento({ competencia, categoria: o.categoria, valorPlanejado: o.valorPlanejado }));
-      exibirToast("Orçamento copiado.", "sucesso");
+      try {
+        orcamentosAnteriores.forEach((o) => salvarOrcamento({ competencia, categoria: o.categoria, valorPlanejado: o.valorPlanejado }));
+        exibirToast("Orçamento copiado.", "sucesso");
+      } catch (erro) {
+        if (erro instanceof ErroArmazenamento) {
+          exibirToast(erro.message, "erro");
+        } else {
+          console.error(erro);
+          exibirToast("Ocorreu um erro ao copiar o orçamento.", "erro");
+        }
+      }
       renderizar();
     });
 

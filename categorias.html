@@ -73,6 +73,7 @@
           <p class="campo__ajuda">Usadas no campo "Forma de pagamento" dos lançamentos.</p>
 
           <form id="form-nova-forma" style="display:flex; gap:var(--espaco-2); margin-top:var(--espaco-4); flex-wrap:wrap">
+            <label class="somente-leitor-tela" for="campo-nova-forma">Nova forma de pagamento</label>
             <input class="campo__entrada" type="text" id="campo-nova-forma" placeholder="Ex.: Vale-alimentação" maxlength="40" style="flex:1; min-width:200px" />
             <button type="submit" class="botao botao--secundario">+ Adicionar</button>
           </form>
@@ -99,7 +100,7 @@
       ErroArmazenamento,
     } from "./assets/js/db.js";
     import { criarCategoria, validarCategoria } from "./assets/js/modelos.js";
-    import { exibirToast, abrirModal, fecharModal, confirmarAcao, escaparHtml, chipCor } from "./assets/js/ui.js";
+    import { exibirToast, abrirModal, fecharModal, confirmarAcao, escaparHtml, chipCor, tentarOuAvisar } from "./assets/js/ui.js";
 
     await iniciarApp("categorias");
 
@@ -184,7 +185,7 @@
                 <label class="campo__rotulo" for="campo-cor">Cor</label>
                 <div style="display:flex; gap:var(--espaco-2); align-items:center">
                   <input type="color" id="campo-cor" value="${dados.cor}" style="width:48px; height:44px; padding:2px; border:1px solid var(--cor-borda-forte); border-radius:var(--raio-md)" />
-                  <input class="campo__entrada" type="text" id="campo-cor-texto" value="${dados.cor}" maxlength="7" pattern="^#[0-9a-fA-F]{6}$" style="flex:1" />
+                  <input class="campo__entrada" type="text" id="campo-cor-texto" value="${dados.cor}" maxlength="7" pattern="^#[0-9a-fA-F]{6}$" aria-label="Cor em hexadecimal" style="flex:1" />
                 </div>
                 <span class="campo__erro" id="erro-cor"></span>
               </div>
@@ -313,8 +314,14 @@
       fundo.querySelector("#form-migrar").addEventListener("submit", (evento) => {
         evento.preventDefault();
         const destino = fundo.querySelector("#campo-destino").value;
-        const resultado = renomearCategoriaEmTudo(categoria.nome, destino);
-        excluirCategoria(categoria.id);
+
+        const { ok, valor: resultado } = tentarOuAvisar(() => {
+          const r = renomearCategoriaEmTudo(categoria.nome, destino);
+          excluirCategoria(categoria.id);
+          return r;
+        }, "Ocorreu um erro ao migrar a categoria.");
+        if (!ok) return;
+
         fecharModal();
         exibirToast(
           `${resultado.lancamentos} lançamento(s) migrado(s) para "${destino}". Categoria "${categoria.nome}" excluída.`,
@@ -338,9 +345,11 @@
           perigo: true,
         });
         if (!confirmado) return;
-        excluirCategoria(id);
-        exibirToast("Categoria excluída.", "sucesso");
-        renderizarTabela();
+        const { ok } = tentarOuAvisar(() => excluirCategoria(id), "Ocorreu um erro ao excluir a categoria.");
+        if (ok) {
+          exibirToast("Categoria excluída.", "sucesso");
+          renderizarTabela();
+        }
         return;
       }
 
@@ -357,7 +366,8 @@
       `;
       const fundo = abrirModal({ titulo: "Categoria em uso", conteudoHtml });
       fundo.querySelector("#botao-so-inativar").addEventListener("click", () => {
-        salvarCategoria({ ...categoria, ativa: false });
+        const { ok } = tentarOuAvisar(() => salvarCategoria({ ...categoria, ativa: false }), "Ocorreu um erro ao inativar a categoria.");
+        if (!ok) return;
         fecharModal();
         exibirToast("Categoria inativada — o histórico foi mantido.", "sucesso");
         renderizarTabela();
@@ -386,7 +396,8 @@
       } else if (botao.dataset.acao === "inativar") {
         const categoria = obterCategoria(id);
         if (!categoria) return;
-        salvarCategoria({ ...categoria, ativa: !categoria.ativa });
+        const { ok } = tentarOuAvisar(() => salvarCategoria({ ...categoria, ativa: !categoria.ativa }), "Ocorreu um erro ao atualizar a categoria.");
+        if (!ok) return;
         exibirToast(categoria.ativa ? "Categoria inativada." : "Categoria reativada.", "sucesso");
         renderizarTabela();
       }
@@ -438,7 +449,11 @@
           fecharModal();
           return;
         }
-        const resultado = renomearFormaPagamento(nomeAtual, novoNome);
+        const { ok, valor: resultado } = tentarOuAvisar(
+          () => renomearFormaPagamento(nomeAtual, novoNome),
+          "Ocorreu um erro ao renomear a forma de pagamento."
+        );
+        if (!ok) return;
         fecharModal();
         renderizarFormas();
         exibirToast(`Renomeada. ${resultado.lancamentos} lançamento(s) atualizado(s).`, "sucesso");
@@ -450,7 +465,8 @@
       const campo = document.getElementById("campo-nova-forma");
       const nome = campo.value.trim();
       if (!nome) return;
-      adicionarFormaPagamento(nome);
+      const { ok } = tentarOuAvisar(() => adicionarFormaPagamento(nome), "Ocorreu um erro ao adicionar a forma de pagamento.");
+      if (!ok) return;
       campo.value = "";
       renderizarFormas();
       exibirToast("Forma de pagamento adicionada.", "sucesso");
@@ -469,7 +485,8 @@
           perigo: true,
         });
         if (!confirmado) return;
-        removerFormaPagamento(nome);
+        const { ok } = tentarOuAvisar(() => removerFormaPagamento(nome), "Ocorreu um erro ao remover a forma de pagamento.");
+        if (!ok) return;
         renderizarFormas();
         exibirToast("Forma de pagamento removida.", "sucesso");
       } else if (botao.dataset.acao === "renomear-forma") {

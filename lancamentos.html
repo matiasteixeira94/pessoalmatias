@@ -176,7 +176,7 @@
       validarDespesaFixa,
     } from "./assets/js/modelos.js";
     import { formatarMoeda, formatarData, hojeIso, competenciaAtual, formatarCompetencia } from "./assets/js/formatadores.js";
-    import { exibirToast, abrirModal, fecharModal, confirmarAcao, escaparHtml, seloStatus, chipCor } from "./assets/js/ui.js";
+    import { exibirToast, abrirModal, fecharModal, confirmarAcao, escaparHtml, seloStatus, chipCor, tentarOuAvisar } from "./assets/js/ui.js";
 
     await iniciarApp("lancamentos");
 
@@ -433,7 +433,8 @@
 
       if (!confirmado) return;
 
-      excluirDespesaFixa(id);
+      const { ok } = tentarOuAvisar(() => excluirDespesaFixa(id), "Ocorreu um erro ao excluir a despesa fixa.");
+      if (!ok) return;
       exibirToast("Despesa fixa excluída.", "sucesso");
       renderizarFixas();
     }
@@ -627,7 +628,8 @@
 
       if (!confirmado) return;
 
-      excluirLancamento(id);
+      const { ok } = tentarOuAvisar(() => excluirLancamento(id), "Ocorreu um erro ao excluir o lançamento.");
+      if (!ok) return;
       exibirToast("Lançamento excluído.", "sucesso");
       renderizarTabela();
     }
@@ -643,11 +645,12 @@
 
     document.getElementById("botao-gerar-mes").addEventListener("click", () => {
       const competencia = filtroMes.value || competenciaAtual();
-      const { gerados } = gerarLancamentosDoMes(competencia);
+      const { ok, valor } = tentarOuAvisar(() => gerarLancamentosDoMes(competencia), "Ocorreu um erro ao gerar os lançamentos do mês.");
+      if (!ok) return;
       renderizarTabela();
       exibirToast(
-        gerados > 0
-          ? `${gerados} lançamento(s) gerado(s) para ${formatarCompetencia(competencia)}.`
+        valor.gerados > 0
+          ? `${valor.gerados} lançamento(s) gerado(s) para ${formatarCompetencia(competencia)}.`
           : `Nenhuma despesa fixa pendente para ${formatarCompetencia(competencia)}.`,
         "sucesso"
       );
@@ -664,7 +667,8 @@
       } else if (botao.dataset.acao === "pausar-fixa") {
         const fixa = obterDespesaFixa(id);
         if (!fixa) return;
-        salvarDespesaFixa({ ...fixa, ativa: !fixa.ativa });
+        const { ok } = tentarOuAvisar(() => salvarDespesaFixa({ ...fixa, ativa: !fixa.ativa }), "Ocorreu um erro ao atualizar a despesa fixa.");
+        if (!ok) return;
         exibirToast(fixa.ativa ? "Despesa fixa pausada." : "Despesa fixa reativada.", "sucesso");
         renderizarFixas();
       }

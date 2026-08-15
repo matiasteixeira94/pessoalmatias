@@ -128,7 +128,7 @@
       exportarBackupJson,
       lerBackupJson,
     } from "./assets/js/importar-exportar.js";
-    import { exibirToast, confirmarAcao, abrirModal, fecharModal, escaparHtml } from "./assets/js/ui.js";
+    import { exibirToast, confirmarAcao, abrirModal, fecharModal, escaparHtml, tentarOuAvisar } from "./assets/js/ui.js";
 
     await iniciarApp("configuracoes");
 
@@ -139,8 +139,8 @@
     const campoMesInicio = document.getElementById("campo-mes-inicio");
     campoMesInicio.value = String(obterConfig().mesInicioAnoFinanceiro);
     campoMesInicio.addEventListener("change", () => {
-      salvarConfig({ mesInicioAnoFinanceiro: Number(campoMesInicio.value) });
-      exibirToast("Preferência salva.", "sucesso");
+      const { ok } = tentarOuAvisar(() => salvarConfig({ mesInicioAnoFinanceiro: Number(campoMesInicio.value) }));
+      if (ok) exibirToast("Preferência salva.", "sucesso");
     });
 
     // ---------------------------------------------------------
@@ -321,7 +321,7 @@
         <p>Para confirmar, digite <strong>APAGAR</strong> no campo abaixo.</p>
         <form id="form-confirmar-exclusao" novalidate>
           <div class="campo" style="margin-top:var(--espaco-3)">
-            <input class="campo__entrada" type="text" id="campo-confirmar-texto" autocomplete="off" />
+            <input class="campo__entrada" type="text" id="campo-confirmar-texto" autocomplete="off" aria-label='Digite APAGAR para confirmar' />
           </div>
           <div class="modal__rodape">
             <button type="button" class="botao botao--secundario" data-acao-fechar-modal>Cancelar</button>
@@ -339,7 +339,13 @@
           exibirToast('Digite exatamente "APAGAR" para confirmar.', "erro");
           return;
         }
-        limparTudo();
+        try {
+          limparTudo();
+        } catch (erro) {
+          console.error(erro);
+          exibirToast("Ocorreu um erro ao apagar os dados.", "erro");
+          return;
+        }
         fecharModal();
         exibirToast("Todos os dados foram apagados. Recarregando...", "sucesso");
         setTimeout(() => window.location.reload(), 1000);

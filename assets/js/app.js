@@ -8,6 +8,7 @@
 import { semearDadosIniciais } from "./seed.js";
 import { gerarLancamentosDoMes } from "./db.js";
 import { competenciaAtual } from "./formatadores.js";
+import { exibirToast } from "./ui.js";
 
 const PAGINAS = [
   { id: "painel", href: "index.html", rotulo: "Painel", icone: "🏠" },
@@ -86,8 +87,18 @@ function montarNavInferior(paginaAtual) {
 export async function iniciarApp(paginaAtual) {
   await semearDadosIniciais();
   // Garante que os gastos fixos do mês corrente já apareçam como
-  // lançamentos "pendente", sem o usuário precisar lançá-los.
-  gerarLancamentosDoMes(competenciaAtual());
+  // lançamentos "pendente", sem o usuário precisar lançá-los. Envolto
+  // em try/catch porque roda em toda página — uma falha aqui (ex.:
+  // armazenamento cheio) não pode impedir o resto do app de carregar.
+  try {
+    gerarLancamentosDoMes(competenciaAtual());
+  } catch (erro) {
+    if (erro && erro.name === "ErroArmazenamento") {
+      exibirToast(erro.message, "erro");
+    } else {
+      console.error("[app] Falha ao gerar lançamentos do mês:", erro);
+    }
+  }
   montarNavLateral(paginaAtual);
   montarNavInferior(paginaAtual);
   registrarServiceWorker();

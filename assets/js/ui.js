@@ -3,6 +3,30 @@
 // (tabelas, selos, escape de texto). Sem lógica de negócio aqui.
 // ===========================================================
 
+/**
+ * Executa uma função que escreve no armazenamento (via db.js),
+ * mostrando um toast de erro amigável se ela lançar — em especial
+ * ErroArmazenamento (ex.: localStorage cheio), mas qualquer outro
+ * erro também vira um toast em vez de quebrar a página silenciosamente.
+ * @template T
+ * @param {() => T} fn
+ * @param {string} mensagemGenerica usada quando o erro não é ErroArmazenamento
+ * @returns {{ok: true, valor: T} | {ok: false, valor: undefined}}
+ */
+export function tentarOuAvisar(fn, mensagemGenerica = "Ocorreu um erro ao salvar os dados.") {
+  try {
+    return { ok: true, valor: fn() };
+  } catch (erro) {
+    if (erro && erro.name === "ErroArmazenamento") {
+      exibirToast(erro.message, "erro");
+    } else {
+      console.error(erro);
+      exibirToast(mensagemGenerica, "erro");
+    }
+    return { ok: false, valor: undefined };
+  }
+}
+
 let containerToasts = null;
 
 function obterContainerToasts() {
@@ -97,7 +121,7 @@ export function abrirModal({ titulo, conteudoHtml, aoFechar } = {}) {
 
   document.body.appendChild(fundo);
   document.body.style.overflow = "hidden";
-  modalAtual = { elemento: fundo, aoFechar };
+  modalAtual = { elemento: fundo, aoFechar, focoAnterior: document.activeElement };
 
   fundo.addEventListener("click", (evento) => {
     if (evento.target === fundo) fecharModal();
@@ -110,20 +134,52 @@ export function abrirModal({ titulo, conteudoHtml, aoFechar } = {}) {
   return fundo;
 }
 
+function elementosFocaveis(container) {
+  return [
+    ...container.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ),
+  ].filter((el) => el.offsetParent !== null);
+}
+
 /**
- * Fecha o modal aberto no momento, se houver.
+ * Fecha o modal aberto no momento, se houver, e devolve o foco a quem
+ * o abriu.
  */
 export function fecharModal() {
   if (!modalAtual) return;
-  const { elemento, aoFechar } = modalAtual;
+  const { elemento, aoFechar, focoAnterior } = modalAtual;
   elemento.remove();
   document.body.style.overflow = "";
   modalAtual = null;
   aoFechar?.();
+  focoAnterior?.focus?.();
 }
 
 document.addEventListener("keydown", (evento) => {
-  if (evento.key === "Escape" && modalAtual) fecharModal();
+  if (!modalAtual) return;
+
+  if (evento.key === "Escape") {
+    fecharModal();
+    return;
+  }
+
+  // Prende o foco (Tab/Shift+Tab) dentro do modal enquanto ele estiver aberto.
+  if (evento.key === "Tab") {
+    const focaveis = elementosFocaveis(modalAtual.elemento);
+    if (focaveis.length === 0) return;
+
+    const primeiro = focaveis[0];
+    const ultimo = focaveis[focaveis.length - 1];
+
+    if (evento.shiftKey && document.activeElement === primeiro) {
+      evento.preventDefault();
+      ultimo.focus();
+    } else if (!evento.shiftKey && document.activeElement === ultimo) {
+      evento.preventDefault();
+      primeiro.focus();
+    }
+  }
 });
 
 /**
