@@ -1,0 +1,105 @@
+/* ===========================================================
+   PRINCIPAL.CSS — layout geral das páginas
+   =========================================================== */
+
+body {
+  font-family: var(--fonte-base);
+  font-size: var(--fonte-tamanho-base);
+  color: var(--cor-texto);
+  background: var(--cor-fundo);
+}
+
+h1, h2, h3, h4 {
+  font-weight: var(--fonte-peso-negrito);
+  line-height: 1.25;
+}
+
+.pagina {
+  min-height: 100vh;
+  padding-bottom: calc(var(--altura-nav-inferior) + var(--espaco-6));
+}
+
+@media (min-width: 900px) {
+  .pagina {
+    padding-left: var(--largura-nav-lateral);
+    padding-bottom: var(--espaco-8);
+  }
+}
+
+.conteudo {
+  max-width: var(--largura-conteudo);
+  margin: 0 auto;
+  padding: var(--espaco-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-6);
+}
+
+@media (min-width: 640px) {
+  .conteudo {
+    padding: var(--espaco-6);
+  }
+}
+
+.cabecalho-pagina {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-4);
+  flex-wrap: wrap;
+}
+
+.cabecalho-pagina__titulo {
+  font-size: var(--fonte-tamanho-lg);
+}
+
+.cabecalho-pagina__subtitulo {
+  color: var(--cor-texto-suave);
+  font-size: var(--fonte-tamanho-sm);
+  margin-top: var(--espaco-1);
+}
+
+.secao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.secao__titulo {
+  font-size: var(--fonte-tamanho-md);
+}
+
+/* Topo fixo simples (marca + ação), usado em mobile no lugar da nav lateral */
+.topo-mobile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--espaco-4);
+  background: var(--cor-fundo-elevado);
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.topo-mobile__marca {
+  font-weight: var(--fonte-peso-negrito);
+  color: var(--cor-primaria-700);
+}
+
+@media (min-width: 900px) {
+  .topo-mobile {
+    display: none;
+  }
+}
+
+/* Tela de carregamento inicial simples */
+.carregando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  color: var(--cor-texto-fraco);
+}
+
+::selection {
+  background: var(--cor-primaria-100);
+  color: var(--cor-primaria-900);
+}

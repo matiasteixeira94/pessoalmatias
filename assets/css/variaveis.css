@@ -1,0 +1,135 @@
+/* ===========================================================
+   VARIAVEIS.CSS — design tokens (cores, espaçamento, tipografia)
+   Paleta sóbria/profissional. Tema claro por padrão, escuro via
+   prefers-color-scheme.
+   =========================================================== */
+
+:root {
+  /* ---- Cor primária: azul-petróleo ---- */
+  --cor-primaria-900: #0b2b33;
+  --cor-primaria-700: #114652;
+  --cor-primaria-600: #16596a;
+  --cor-primaria-500: #1c6d82;
+  --cor-primaria-400: #2f8ba1;
+  --cor-primaria-100: #dceef2;
+  --cor-primaria-50: #f0f8fa;
+
+  /* ---- Semânticas: receita/positivo (verde) e despesa/negativo (vermelho terroso) ---- */
+  --cor-sucesso-700: #1f5c3f;
+  --cor-sucesso-600: #2a7a52;
+  --cor-sucesso-500: #348f61;
+  --cor-sucesso-100: #dcefe3;
+
+  --cor-erro-700: #7a2f22;
+  --cor-erro-600: #9c3f2c;
+  --cor-erro-500: #b54c35;
+  --cor-erro-100: #f4e1db;
+
+  --cor-alerta-700: #8a5a05;
+  --cor-alerta-600: #b3790c;
+  --cor-alerta-500: #d99417;
+  --cor-alerta-100: #fbeed2;
+
+  /* ---- Neutros (tema claro) ---- */
+  --cor-fundo: #f7f8f7;
+  --cor-fundo-elevado: #ffffff;
+  --cor-fundo-sutil: #eef1f0;
+  --cor-borda: #dde2e1;
+  --cor-borda-forte: #c3cbc9;
+  --cor-texto: #1c2320;
+  --cor-texto-suave: #55625d;
+  --cor-texto-fraco: #838f8a;
+  --cor-texto-inverso: #ffffff;
+
+  /* ---- Cores por tipo de lançamento ---- */
+  --cor-receita: var(--cor-sucesso-600);
+  --cor-receita-fundo: var(--cor-sucesso-100);
+  --cor-despesa: var(--cor-erro-600);
+  --cor-despesa-fundo: var(--cor-erro-100);
+
+  /* ---- Tipografia ---- */
+  --fonte-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --fonte-numerica: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --fonte-tamanho-xs: 0.75rem;
+  --fonte-tamanho-sm: 0.875rem;
+  --fonte-tamanho-base: 1rem;
+  --fonte-tamanho-md: 1.125rem;
+  --fonte-tamanho-lg: 1.375rem;
+  --fonte-tamanho-xl: 1.75rem;
+  --fonte-tamanho-2xl: 2.25rem;
+  --fonte-peso-normal: 400;
+  --fonte-peso-medio: 500;
+  --fonte-peso-negrito: 700;
+
+  /* Números monetários: alinhados, tabulares */
+  --numero-variante: tabular-nums;
+
+  /* ---- Espaçamento (escala 4px) ---- */
+  --espaco-1: 0.25rem;
+  --espaco-2: 0.5rem;
+  --espaco-3: 0.75rem;
+  --espaco-4: 1rem;
+  --espaco-5: 1.25rem;
+  --espaco-6: 1.5rem;
+  --espaco-8: 2rem;
+  --espaco-10: 2.5rem;
+  --espaco-12: 3rem;
+
+  /* ---- Raios e sombras ---- */
+  --raio-sm: 6px;
+  --raio-md: 10px;
+  --raio-lg: 16px;
+  --raio-total: 999px;
+
+  --sombra-sm: 0 1px 2px rgba(15, 23, 20, 0.06);
+  --sombra-md: 0 4px 12px rgba(15, 23, 20, 0.08);
+  --sombra-lg: 0 8px 24px rgba(15, 23, 20, 0.12);
+
+  /* ---- Layout ---- */
+  --largura-conteudo: 1120px;
+  --altura-nav-inferior: 64px;
+  --largura-nav-lateral: 240px;
+
+  /* ---- Transições ---- */
+  --transicao-rapida: 120ms ease;
+  --transicao-padrao: 200ms ease;
+
+  /* ---- Camadas ---- */
+  --z-nav: 100;
+  --z-modal: 200;
+  --z-toast: 300;
+}
+
+/* ---- Tema escuro automático ---- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cor-fundo: #10161a;
+    --cor-fundo-elevado: #171f24;
+    --cor-fundo-sutil: #1d262b;
+    --cor-borda: #2a3339;
+    --cor-borda-forte: #3a454c;
+    --cor-texto: #e9edec;
+    --cor-texto-suave: #aab3ae;
+    --cor-texto-fraco: #7c8985;
+    --cor-texto-inverso: #10161a;
+
+    --cor-primaria-100: #16323a;
+    --cor-primaria-50: #12262c;
+    --cor-primaria-400: #4ba3b8;
+    --cor-primaria-500: #3f95ab;
+
+    --cor-sucesso-100: #17301f;
+    --cor-sucesso-500: #4caf7c;
+    --cor-erro-100: #33201a;
+    --cor-erro-500: #d1725a;
+    --cor-alerta-100: #3a2c10;
+    --cor-alerta-500: #e6a93a;
+
+    --cor-receita: var(--cor-sucesso-500);
+    --cor-despesa: var(--cor-erro-500);
+
+    --sombra-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --sombra-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --sombra-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
