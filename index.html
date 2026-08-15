@@ -50,7 +50,7 @@
             <div class="card__valor valor-negativo" id="card-despesas">R$ 0,00</div>
             <div class="card__rodape" id="card-despesas-comparativo"></div>
           </div>
-          <div class="card">
+          <div class="card card--hero">
             <div class="card__titulo">Saldo do mês</div>
             <div class="card__valor" id="card-saldo">R$ 0,00</div>
             <div class="card__rodape" id="card-saldo-comparativo"></div>
@@ -138,7 +138,7 @@
       formatarCompetencia,
       competenciaAtual,
     } from "./assets/js/formatadores.js";
-    import { escaparHtml, seloStatus } from "./assets/js/ui.js";
+    import { escaparHtml, seloStatus, animarNumero } from "./assets/js/ui.js";
 
     await iniciarApp("painel");
 
@@ -148,25 +148,32 @@
     function renderizarCards(lancamentos, competencia) {
       const comparativo = compararComMesAnterior(lancamentos, competencia);
 
-      document.getElementById("card-receitas").textContent = formatarMoeda(comparativo.receitas.atual);
-      document.getElementById("card-despesas").textContent = formatarMoeda(comparativo.despesas.atual);
+      animarNumero(document.getElementById("card-receitas"), comparativo.receitas.atual, formatarMoeda);
+      animarNumero(document.getElementById("card-despesas"), comparativo.despesas.atual, formatarMoeda);
 
       const saldoEl = document.getElementById("card-saldo");
-      saldoEl.textContent = formatarMoeda(comparativo.saldo.atual);
-      saldoEl.className = `card__valor ${comparativo.saldo.atual >= 0 ? "valor-positivo" : "valor-negativo"}`;
+      animarNumero(saldoEl, comparativo.saldo.atual, formatarMoeda);
+      saldoEl.closest(".card").classList.toggle("card--hero--negativo", comparativo.saldo.atual < 0);
 
-      const rodapeComparativo = (chave, inverterCor) => {
+      const rodapeComparativo = (chave, inverterCor, sobreGradiente) => {
         const { variacaoAbs, variacaoPct } = comparativo[chave];
         if (comparativo[chave].anterior === 0 && comparativo[chave].atual === 0) return "Sem dados no mês anterior";
         const sinal = variacaoAbs >= 0 ? "+" : "";
-        const positivo = inverterCor ? variacaoAbs <= 0 : variacaoAbs >= 0;
-        const cor = positivo ? "var(--cor-receita)" : "var(--cor-despesa)";
-        return `<span style="color:${cor}">${sinal}${formatarMoeda(variacaoAbs)} (${sinal}${formatarPercentual(variacaoPct)})</span> vs. mês anterior`;
+        // No card hero (fundo em gradiente azul), verde/vermelho ficam
+        // ilegíveis — o sinal (+/−) já indica a direção, então usa branco.
+        let cor;
+        if (sobreGradiente) {
+          cor = "rgba(255,255,255,0.92)";
+        } else {
+          const positivo = inverterCor ? variacaoAbs <= 0 : variacaoAbs >= 0;
+          cor = positivo ? "var(--cor-receita)" : "var(--cor-despesa)";
+        }
+        return `<span style="color:${cor}; font-weight:${sobreGradiente ? 600 : 400}">${sinal}${formatarMoeda(variacaoAbs)} (${sinal}${formatarPercentual(variacaoPct)})</span> vs. mês anterior`;
       };
 
-      document.getElementById("card-receitas-comparativo").innerHTML = rodapeComparativo("receitas", false);
-      document.getElementById("card-despesas-comparativo").innerHTML = rodapeComparativo("despesas", true);
-      document.getElementById("card-saldo-comparativo").innerHTML = rodapeComparativo("saldo", false);
+      document.getElementById("card-receitas-comparativo").innerHTML = rodapeComparativo("receitas", false, false);
+      document.getElementById("card-despesas-comparativo").innerHTML = rodapeComparativo("despesas", true, false);
+      document.getElementById("card-saldo-comparativo").innerHTML = rodapeComparativo("saldo", false, true);
     }
 
     function renderizarOrcamento(lancamentos, competencia) {

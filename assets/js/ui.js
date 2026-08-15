@@ -3,6 +3,37 @@
 // (tabelas, selos, escape de texto). Sem lógica de negócio aqui.
 // ===========================================================
 
+const PREFERE_MOVIMENTO_REDUZIDO =
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+/**
+ * Anima um número subindo de 0 até `valorFinal`, atualizando o texto de
+ * `elemento` a cada quadro — usado nos cards de destaque (saldo, totais)
+ * para dar um efeito de "contagem" ao carregar a página. Não anima nada
+ * se o usuário preferir movimento reduzido; só escreve o valor final.
+ * @param {HTMLElement} elemento
+ * @param {number} valorFinal
+ * @param {(valor: number) => string} formatador ex.: formatarMoeda
+ * @param {number} duracaoMs
+ */
+export function animarNumero(elemento, valorFinal, formatador, duracaoMs = 900) {
+  if (!elemento) return;
+  if (PREFERE_MOVIMENTO_REDUZIDO || !Number.isFinite(valorFinal)) {
+    elemento.textContent = formatador(valorFinal);
+    return;
+  }
+
+  const inicio = performance.now();
+  function quadro(agora) {
+    const progresso = Math.min((agora - inicio) / duracaoMs, 1);
+    const facilitado = 1 - Math.pow(1 - progresso, 3); // ease-out cúbico
+    elemento.textContent = formatador(valorFinal * facilitado);
+    if (progresso < 1) requestAnimationFrame(quadro);
+    else elemento.textContent = formatador(valorFinal);
+  }
+  requestAnimationFrame(quadro);
+}
+
 /**
  * Executa uma função que escreve no armazenamento (via db.js),
  * mostrando um toast de erro amigável se ela lançar — em especial

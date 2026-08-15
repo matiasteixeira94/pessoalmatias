@@ -6,12 +6,14 @@ body {
   font-family: var(--fonte-base);
   font-size: var(--fonte-tamanho-base);
   color: var(--cor-texto);
-  background: var(--cor-fundo);
+  background: var(--gradiente-tela), var(--cor-fundo);
+  background-attachment: fixed;
 }
 
 h1, h2, h3, h4 {
   font-weight: var(--fonte-peso-negrito);
   line-height: 1.25;
+  letter-spacing: -0.015em;
 }
 
 .pagina {
@@ -50,7 +52,7 @@ h1, h2, h3, h4 {
 }
 
 .cabecalho-pagina__titulo {
-  font-size: var(--fonte-tamanho-lg);
+  font-size: var(--fonte-tamanho-xl);
 }
 
 .cabecalho-pagina__subtitulo {
@@ -71,17 +73,25 @@ h1, h2, h3, h4 {
 
 /* Topo fixo simples (marca + ação), usado em mobile no lugar da nav lateral */
 .topo-mobile {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--espaco-4);
-  background: var(--cor-fundo-elevado);
+  background: var(--gradiente-vidro);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
   border-bottom: 1px solid var(--cor-borda);
 }
 
 .topo-mobile__marca {
   font-weight: var(--fonte-peso-negrito);
-  color: var(--cor-primaria-700);
+  background: var(--gradiente-primario);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
 }
 
 @media (min-width: 900px) {

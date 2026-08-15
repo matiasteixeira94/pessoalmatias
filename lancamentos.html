@@ -176,7 +176,7 @@
       validarDespesaFixa,
     } from "./assets/js/modelos.js";
     import { formatarMoeda, formatarData, hojeIso, competenciaAtual, formatarCompetencia } from "./assets/js/formatadores.js";
-    import { exibirToast, abrirModal, fecharModal, confirmarAcao, escaparHtml, seloStatus, chipCor, tentarOuAvisar } from "./assets/js/ui.js";
+    import { exibirToast, abrirModal, fecharModal, confirmarAcao, escaparHtml, seloStatus, chipCor, tentarOuAvisar, animarNumero } from "./assets/js/ui.js";
 
     await iniciarApp("lancamentos");
 
@@ -223,11 +223,13 @@
       const despesas = lista.filter((l) => l.tipo === "despesa").reduce((soma, l) => soma + l.valor, 0);
       const saldo = receitas - despesas;
 
-      document.getElementById("resumo-receitas").textContent = formatarMoeda(receitas);
-      document.getElementById("resumo-despesas").textContent = formatarMoeda(despesas);
+      // Duração curta: esses cards re-renderizam a cada filtro/busca, então
+      // a contagem precisa ser rápida pra não parecer lenta ao digitar.
+      animarNumero(document.getElementById("resumo-receitas"), receitas, formatarMoeda, 380);
+      animarNumero(document.getElementById("resumo-despesas"), despesas, formatarMoeda, 380);
       const elSaldo = document.getElementById("resumo-saldo");
-      elSaldo.textContent = formatarMoeda(saldo);
       elSaldo.className = `card__valor ${saldo >= 0 ? "valor-positivo" : "valor-negativo"}`;
+      animarNumero(elSaldo, saldo, formatarMoeda, 380);
     }
 
     function linhaLancamento(lancamento) {

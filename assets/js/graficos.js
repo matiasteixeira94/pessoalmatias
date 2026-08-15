@@ -28,9 +28,42 @@ function destruirGraficoExistente(canvas) {
   Chart.getChart(canvas)?.destroy();
 }
 
+/**
+ * Gradiente vertical suave para preenchimento de área (mais rico que
+ * uma cor chapada). Precisa ser recalculado a cada render porque
+ * depende da área do gráfico já medida pelo Chart.js.
+ */
+function gradienteVertical(contexto, corHex, alphaTopo, alphaBase) {
+  const { chart } = contexto;
+  const { chartArea } = chart;
+  if (!chartArea) return comOpacidade(corHex, alphaTopo);
+  const gradiente = chart.ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+  gradiente.addColorStop(0, comOpacidade(corHex, alphaTopo));
+  gradiente.addColorStop(1, comOpacidade(corHex, alphaBase));
+  return gradiente;
+}
+
+/** Estilo compartilhado dos tooltips — cantos arredondados, mais respiro. */
+function estiloTooltip() {
+  return {
+    backgroundColor: corCss("--cor-texto"),
+    titleColor: corCss("--cor-fundo"),
+    bodyColor: corCss("--cor-fundo"),
+    padding: 10,
+    cornerRadius: 10,
+    displayColors: false,
+    titleFont: { weight: "600" },
+    bodyFont: { weight: "500" },
+  };
+}
+
+const PREFERE_MOVIMENTO_REDUZIDO =
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
 const OPCOES_BASE = {
   responsive: true,
   maintainAspectRatio: false,
+  animation: PREFERE_MOVIMENTO_REDUZIDO ? false : { duration: 780, easing: "easeOutQuart" },
   plugins: {
     legend: { display: false },
   },
@@ -58,13 +91,17 @@ export function graficoLinha(canvas, { labels, dados, rotulo = "Valor" }) {
           label: rotulo,
           data: dados,
           borderColor: corLinha,
-          backgroundColor: comOpacidade(corLinha, 0.14),
-          borderWidth: 2,
+          backgroundColor: (ctx) => gradienteVertical(ctx, corLinha, 0.32, 0.02),
+          borderWidth: 2.5,
           fill: true,
-          tension: 0.25,
-          pointRadius: 3,
-          pointHoverRadius: 5,
+          tension: 0.35,
+          cubicInterpolationMode: "monotone",
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointHoverBorderWidth: 2,
+          pointHoverBorderColor: "#fff",
           pointBackgroundColor: corLinha,
+          pointHoverBackgroundColor: corLinha,
         },
       ],
     },
@@ -81,7 +118,7 @@ export function graficoLinha(canvas, { labels, dados, rotulo = "Valor" }) {
       },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: (ctx) => ` ${formatarMoeda(ctx.parsed.y)}` } },
+        tooltip: { ...estiloTooltip(), callbacks: { label: (ctx) => ` ${formatarMoeda(ctx.parsed.y)}` } },
       },
     },
   });
@@ -105,8 +142,8 @@ export function graficoBarrasReceitaDespesa(canvas, { labels, receitas, despesas
     data: {
       labels,
       datasets: [
-        { label: "Receitas", data: receitas, backgroundColor: corReceita, borderRadius: 4, maxBarThickness: 28 },
-        { label: "Despesas", data: despesas, backgroundColor: corDespesa, borderRadius: 4, maxBarThickness: 28 },
+        { label: "Receitas", data: receitas, backgroundColor: corReceita, hoverBackgroundColor: corReceita, borderRadius: 8, maxBarThickness: 28 },
+        { label: "Despesas", data: despesas, backgroundColor: corDespesa, hoverBackgroundColor: corDespesa, borderRadius: 8, maxBarThickness: 28 },
       ],
     },
     options: {
@@ -121,8 +158,8 @@ export function graficoBarrasReceitaDespesa(canvas, { labels, receitas, despesas
         },
       },
       plugins: {
-        legend: { display: true, position: "bottom", labels: { color: corTexto, usePointStyle: true } },
-        tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${formatarMoeda(ctx.parsed.y)}` } },
+        legend: { display: true, position: "bottom", labels: { color: corTexto, usePointStyle: true, boxWidth: 8, padding: 16 } },
+        tooltip: { ...estiloTooltip(), callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${formatarMoeda(ctx.parsed.y)}` } },
       },
     },
   });
@@ -146,7 +183,7 @@ export function graficoRanking(canvas, { rotulos, valores }) {
     type: "bar",
     data: {
       labels: rotulos,
-      datasets: [{ data: valores, backgroundColor: corBarra, borderRadius: 4, maxBarThickness: 24 }],
+      datasets: [{ data: valores, backgroundColor: corBarra, hoverBackgroundColor: corBarra, borderRadius: 8, maxBarThickness: 24 }],
     },
     options: {
       ...OPCOES_BASE,
@@ -162,7 +199,7 @@ export function graficoRanking(canvas, { rotulos, valores }) {
       },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: (ctx) => ` ${formatarMoeda(ctx.parsed.x)}` } },
+        tooltip: { ...estiloTooltip(), callbacks: { label: (ctx) => ` ${formatarMoeda(ctx.parsed.x)}` } },
       },
     },
   });
@@ -190,7 +227,8 @@ export function graficoComparativoDuplo(canvas, { rotulos, valores }) {
         {
           data: valores,
           backgroundColor: [corPrincipal, corSecundaria],
-          borderRadius: 4,
+          hoverBackgroundColor: [corPrincipal, corSecundaria],
+          borderRadius: 8,
           maxBarThickness: 56,
         },
       ],
@@ -208,7 +246,7 @@ export function graficoComparativoDuplo(canvas, { rotulos, valores }) {
       },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: (ctx) => ` ${formatarMoeda(ctx.parsed.y)}` } },
+        tooltip: { ...estiloTooltip(), callbacks: { label: (ctx) => ` ${formatarMoeda(ctx.parsed.y)}` } },
       },
     },
   });
