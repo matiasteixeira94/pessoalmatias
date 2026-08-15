@@ -7,23 +7,27 @@
 // on-line, o usuário já vê a versão em cache instantaneamente e o
 // cache se mantém atualizado. Para navegações (troca de página) sem
 // rede e sem correspondência exata no cache (ex.: com query string),
-// cai no app shell (index.html) em vez de mostrar erro do navegador.
+// cai no app shell ("/") em vez de mostrar erro do navegador.
 //
 // Versionamento: mude CACHE_VERSION a cada deploy que altere algum
 // arquivo estático — o "activate" apaga caches de versões antigas.
 // ===========================================================
 
-const CACHE_VERSION = "gfm-v1";
+const CACHE_VERSION = "gfm-v2";
 const CACHE_ESTATICO = `gfm-estatico-${CACHE_VERSION}`;
 
+// Sempre as URLs "limpas" (sem .html) — o vercel.json usa cleanUrls, então
+// "/lancamentos.html" 308-redireciona para "/lancamentos". Servir do cache
+// uma resposta de navegação que veio de um redirecionamento quebra com
+// net::ERR_FAILED no Chrome; pré-cacheando (e linkando, em app.js) direto a
+// URL final, sem redirecionamento, o problema não existe.
 const ARQUIVOS_PRECACHE = [
   "/",
-  "/index.html",
-  "/lancamentos.html",
-  "/orcamento.html",
-  "/relatorios.html",
-  "/categorias.html",
-  "/configuracoes.html",
+  "/lancamentos",
+  "/orcamento",
+  "/relatorios",
+  "/categorias",
+  "/configuracoes",
   "/manifest.json",
   "/assets/css/reset.css",
   "/assets/css/variaveis.css",
@@ -92,7 +96,7 @@ self.addEventListener("fetch", (evento) => {
           }
           return respostaRede;
         })
-        .catch(() => (ehNavegacao ? caches.match("/index.html") : undefined));
+        .catch(() => (ehNavegacao ? caches.match("/") : undefined));
     })
   );
 });

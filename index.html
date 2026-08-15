@@ -97,7 +97,7 @@
       <section class="secao">
         <div class="cabecalho-pagina">
           <h2 class="secao__titulo">Últimos lançamentos</h2>
-          <a class="botao botao--texto" id="link-ver-todos" href="./lancamentos.html">Ver todos →</a>
+          <a class="botao botao--texto" id="link-ver-todos" href="/lancamentos">Ver todos →</a>
         </div>
         <div class="tabela-wrap">
           <table class="tabela">
@@ -180,7 +180,7 @@
 
       if (totalPlanejado === 0) {
         cardOrcamento.textContent = "—";
-        detalheOrcamento.innerHTML = `Nenhum orçamento definido. <a class="botao--texto" href="./orcamento.html">Definir agora</a>`;
+        detalheOrcamento.innerHTML = `Nenhum orçamento definido. <a class="botao--texto" href="/orcamento">Definir agora</a>`;
       } else {
         const percentual = totalRealizado / totalPlanejado;
         cardOrcamento.textContent = formatarPercentual(percentual);
@@ -270,7 +270,7 @@
         });
       }
 
-      document.getElementById("link-ver-todos").href = `./lancamentos.html?mes=${competencia}`;
+      document.getElementById("link-ver-todos").href = `/lancamentos?mes=${competencia}`;
     }
 
     function renderizarTudo() {

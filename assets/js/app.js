@@ -10,13 +10,19 @@ import { gerarLancamentosDoMes } from "./db.js";
 import { competenciaAtual } from "./formatadores.js";
 import { exibirToast } from "./ui.js";
 
+// Hrefs sem ".html" e absolutos (a partir da raiz): o vercel.json usa
+// cleanUrls, então "/lancamentos.html" sempre re-direciona (308) para
+// "/lancamentos" — e um service worker que serve do cache uma resposta
+// vinda de redirecionamento quebra a navegação (net::ERR_FAILED no
+// Chrome). Linkando direto para a URL final, sem redirecionamento, evita
+// o problema por completo (e funciona igual com `npx serve` localmente).
 const PAGINAS = [
-  { id: "painel", href: "index.html", rotulo: "Painel", icone: "🏠" },
-  { id: "lancamentos", href: "lancamentos.html", rotulo: "Lançamentos", icone: "💳" },
-  { id: "orcamento", href: "orcamento.html", rotulo: "Orçamento", icone: "🎯" },
-  { id: "relatorios", href: "relatorios.html", rotulo: "Relatórios", icone: "📊" },
-  { id: "categorias", href: "categorias.html", rotulo: "Categorias", icone: "🏷️" },
-  { id: "configuracoes", href: "configuracoes.html", rotulo: "Ajustes", icone: "⚙️" },
+  { id: "painel", href: "/", rotulo: "Painel", icone: "🏠" },
+  { id: "lancamentos", href: "/lancamentos", rotulo: "Lançamentos", icone: "💳" },
+  { id: "orcamento", href: "/orcamento", rotulo: "Orçamento", icone: "🎯" },
+  { id: "relatorios", href: "/relatorios", rotulo: "Relatórios", icone: "📊" },
+  { id: "categorias", href: "/categorias", rotulo: "Categorias", icone: "🏷️" },
+  { id: "configuracoes", href: "/configuracoes", rotulo: "Ajustes", icone: "⚙️" },
 ];
 
 // Itens exibidos na barra inferior do celular (espaço limitado).
