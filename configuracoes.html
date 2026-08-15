@@ -68,6 +68,21 @@
 
       <section class="secao">
         <div class="card">
+          <h2 class="secao__titulo">Dados de exemplo</h2>
+          <p class="campo__ajuda" style="margin-top:var(--espaco-1)">
+            Adiciona ~20 lançamentos fictícios (marcados com "(exemplo)" na descrição), no mês
+            atual e no anterior, só para você avaliar o painel, orçamento e relatórios com dados
+            de verdade. Não mexe no que você já tiver lançado — para tirar os de exemplo depois,
+            use "Apagar todos os dados" ali embaixo, ou exclua um por um em Lançamentos.
+          </p>
+          <button type="button" class="botao botao--secundario" id="botao-carregar-exemplo" style="margin-top:var(--espaco-4)">
+            ✨ Carregar dados de exemplo (2 meses)
+          </button>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="card">
           <h2 class="secao__titulo">Preferências</h2>
           <div class="campo" style="max-width:280px; margin-top:var(--espaco-4)">
             <label class="campo__rotulo" for="campo-mes-inicio">Mês de início do ano financeiro</label>
@@ -112,6 +127,7 @@
     import {
       listarLancamentos,
       salvarLancamento,
+      salvarOrcamento,
       listarCategorias,
       obterConfig,
       salvarConfig,
@@ -120,6 +136,7 @@
       limparTudo,
       ErroArmazenamento,
     } from "./assets/js/db.js";
+    import { competenciaAtual, deslocarCompetencia } from "./assets/js/formatadores.js";
     import {
       lerPlanilha,
       prepararImportacao,
@@ -302,6 +319,69 @@
       } catch (erro) {
         exibirToast(erro.message || "Não foi possível restaurar o backup.", "erro");
       }
+    });
+
+    // ---------------------------------------------------------
+    // Dados de exemplo (2 meses) — só para avaliar o visual/telas
+    // ---------------------------------------------------------
+
+    function montarLancamentosExemplo() {
+      const mesAtual = competenciaAtual();
+      const mesAnterior = deslocarCompetencia(mesAtual, -1);
+      const item = (mes, dia, tipo, categoria, descricao, valor, extras = {}) => ({
+        data: `${mes}-${dia}`,
+        tipo,
+        categoria,
+        descricao: `${descricao} (exemplo)`,
+        valor,
+        status: "pago",
+        formaPagamento: ["Pix", "Débito", "Crédito", "Dinheiro"][valor % 4] || "Pix",
+        ...extras,
+      });
+
+      return [
+        // Mês atual
+        item(mesAtual, "05", "receita", "Salário", "Salário mensal", 8500),
+        item(mesAtual, "10", "receita", "Freelance", "Projeto extra", 1200),
+        item(mesAtual, "05", "despesa", "Moradia", "Aluguel", 2200, { recorrente: true }),
+        item(mesAtual, "08", "despesa", "Alimentação", "Supermercado", 780),
+        item(mesAtual, "12", "despesa", "Combustível", "Posto", 340),
+        item(mesAtual, "15", "despesa", "Carro", "Revisão", 450, { status: "pendente" }),
+        item(mesAtual, "14", "despesa", "Saúde", "Plano de saúde", 380, { recorrente: true }),
+        item(mesAtual, "16", "despesa", "Lazer", "Cinema e jantar", 210),
+        item(mesAtual, "11", "despesa", "Educação", "Curso online", 350),
+        item(mesAtual, "18", "despesa", "Alimentação", "Restaurante", 165),
+        // Mês anterior
+        item(mesAnterior, "05", "receita", "Salário", "Salário mensal", 8200),
+        item(mesAnterior, "05", "despesa", "Moradia", "Aluguel", 2200, { recorrente: true }),
+        item(mesAnterior, "08", "despesa", "Alimentação", "Supermercado", 690),
+        item(mesAnterior, "10", "despesa", "Combustível", "Posto", 300),
+        item(mesAnterior, "14", "despesa", "Saúde", "Plano de saúde", 380, { recorrente: true }),
+        item(mesAnterior, "19", "despesa", "Lazer", "Show", 260),
+        item(mesAnterior, "22", "despesa", "Carro", "Estacionamento", 90),
+        item(mesAnterior, "25", "despesa", "Educação", "Livros", 120),
+      ];
+    }
+
+    document.getElementById("botao-carregar-exemplo").addEventListener("click", async () => {
+      const confirmado = await confirmarAcao({
+        titulo: "Carregar dados de exemplo",
+        mensagem: "Isso adiciona ~18 lançamentos fictícios (2 meses) para você avaliar o painel, orçamento e relatórios. Não apaga nada que você já tenha lançado.",
+        textoConfirmar: "Carregar exemplo",
+      });
+      if (!confirmado) return;
+
+      const { ok } = tentarOuAvisar(() => {
+        montarLancamentosExemplo().forEach((l) => salvarLancamento(l));
+        const mesAtual = competenciaAtual();
+        salvarOrcamento({ competencia: mesAtual, categoria: "Alimentação", valorPlanejado: 700 });
+        salvarOrcamento({ competencia: mesAtual, categoria: "Moradia", valorPlanejado: 2200 });
+        salvarOrcamento({ competencia: mesAtual, categoria: "Lazer", valorPlanejado: 150 });
+      }, "Ocorreu um erro ao carregar os dados de exemplo.");
+
+      if (!ok) return;
+      exibirToast("Dados de exemplo carregados. Recarregando...", "sucesso");
+      setTimeout(() => window.location.reload(), 1000);
     });
 
     // ---------------------------------------------------------
