@@ -80,18 +80,13 @@ h1, h2, h3, h4 {
   align-items: center;
   justify-content: space-between;
   padding: var(--espaco-4);
-  background: var(--gradiente-vidro);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border-bottom: 1px solid var(--cor-borda);
+  background: linear-gradient(135deg, var(--cor-primaria-600) 0%, var(--cor-primaria-900) 100%);
+  box-shadow: 0 4px 16px rgba(1, 92, 145, 0.2);
 }
 
 .topo-mobile__marca {
   font-weight: var(--fonte-peso-negrito);
-  background: var(--gradiente-primario);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: #fff;
 }
 
 @media (min-width: 900px) {
