@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Painel — Gestão Financeira Matias</title>
+  <meta name="theme-color" content="#16596a" />
+  <link rel="stylesheet" href="./assets/css/reset.css" />
+  <link rel="stylesheet" href="./assets/css/variaveis.css" />
+  <link rel="stylesheet" href="./assets/css/componentes.css" />
+  <link rel="stylesheet" href="./assets/css/principal.css" />
+</head>
+<body>
+  <div class="pagina">
+    <div class="topo-mobile">
+      <span class="topo-mobile__marca">Gestão Financeira Matias</span>
+    </div>
+
+    <main class="conteudo">
+      <div class="cabecalho-pagina">
+        <div>
+          <h1 class="cabecalho-pagina__titulo">Painel</h1>
+          <p class="cabecalho-pagina__subtitulo">Visão geral do mês — cards, gráficos e comparativo.</p>
+        </div>
+      </div>
+
+      <section class="secao">
+        <div class="card">
+          <h2 class="secao__titulo">Em construção</h2>
+          <p class="campo__ajuda" style="margin-top:var(--espaco-2)">
+            O painel (cards do mês, comparativo com mês anterior e gráficos) será implementado
+            na Fase 2. Por enquanto, use
+            <a class="botao--texto" href="./lancamentos.html">Lançamentos</a>
+            para cadastrar suas receitas e despesas.
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { iniciarApp } from "./assets/js/app.js";
+    await iniciarApp("painel");
+  </script>
+</body>
+</html>

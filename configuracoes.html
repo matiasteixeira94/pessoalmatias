@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Configurações — Gestão Financeira Matias</title>
+  <meta name="theme-color" content="#16596a" />
+  <link rel="stylesheet" href="./assets/css/reset.css" />
+  <link rel="stylesheet" href="./assets/css/variaveis.css" />
+  <link rel="stylesheet" href="./assets/css/componentes.css" />
+  <link rel="stylesheet" href="./assets/css/principal.css" />
+</head>
+<body>
+  <div class="pagina">
+    <div class="topo-mobile">
+      <span class="topo-mobile__marca">Gestão Financeira Matias</span>
+    </div>
+
+    <main class="conteudo">
+      <div class="cabecalho-pagina">
+        <div>
+          <h1 class="cabecalho-pagina__titulo">Configurações</h1>
+          <p class="cabecalho-pagina__subtitulo">Backup, importação/exportação e preferências.</p>
+        </div>
+      </div>
+
+      <section class="secao">
+        <div class="card">
+          <h2 class="secao__titulo">Em construção</h2>
+          <p class="campo__ajuda" style="margin-top:var(--espaco-2)">
+            Backup/restauração, importação de planilha, limpeza de dados e a definição
+            do mês de início do ano financeiro serão implementados na Fase 3.
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { iniciarApp } from "./assets/js/app.js";
+    await iniciarApp("configuracoes");
+  </script>
+</body>
+</html>

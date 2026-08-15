@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Relatórios — Gestão Financeira Matias</title>
+  <meta name="theme-color" content="#16596a" />
+  <link rel="stylesheet" href="./assets/css/reset.css" />
+  <link rel="stylesheet" href="./assets/css/variaveis.css" />
+  <link rel="stylesheet" href="./assets/css/componentes.css" />
+  <link rel="stylesheet" href="./assets/css/principal.css" />
+</head>
+<body>
+  <div class="pagina">
+    <div class="topo-mobile">
+      <span class="topo-mobile__marca">Gestão Financeira Matias</span>
+    </div>
+
+    <main class="conteudo">
+      <div class="cabecalho-pagina">
+        <div>
+          <h1 class="cabecalho-pagina__titulo">Relatórios</h1>
+          <p class="cabecalho-pagina__subtitulo">Evolução do saldo, ranking de categorias e mais.</p>
+        </div>
+      </div>
+
+      <section class="secao">
+        <div class="card">
+          <h2 class="secao__titulo">Em construção</h2>
+          <p class="campo__ajuda" style="margin-top:var(--espaco-2)">
+            Os gráficos de evolução mensal, ranking de categorias, gastos por forma de
+            pagamento e exportação de relatório em CSV serão implementados na Fase 2.
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { iniciarApp } from "./assets/js/app.js";
+    await iniciarApp("relatorios");
+  </script>
+</body>
+</html>
