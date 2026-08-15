@@ -212,8 +212,9 @@ export function salvarCategoria(dados) {
 }
 
 /**
- * Exclui uma categoria pelo id. Não verifica uso em lançamentos —
- * essa regra fica a cargo da página categorias.html (Fase 3).
+ * Exclui uma categoria pelo id. Não verifica uso — quem chama deve
+ * checar contarUsosDaCategoria() antes (é o que categorias.html faz)
+ * para não deixar lançamentos "órfãos" silenciosamente.
  * @param {string} id
  * @returns {boolean}
  */
@@ -231,6 +232,77 @@ export function excluirCategoria(id) {
  */
 export function substituirCategorias(lista) {
   escreverBruto(CHAVES.categorias, lista);
+}
+
+/**
+ * Conta quantos lançamentos, despesas fixas e orçamentos referenciam
+ * uma categoria pelo nome. Usado por categorias.html para impedir a
+ * exclusão de uma categoria em uso (e oferecer inativar ou migrar).
+ * @param {string} nomeCategoria
+ * @returns {{lancamentos: number, despesasFixas: number, orcamentos: number, total: number}}
+ */
+export function contarUsosDaCategoria(nomeCategoria) {
+  const lancamentos = lerBruto(CHAVES.lancamentos, []).filter((l) => l.categoria === nomeCategoria).length;
+  const despesasFixas = lerBruto(CHAVES.despesasFixas, []).filter((d) => d.categoria === nomeCategoria).length;
+  const orcamentos = lerBruto(CHAVES.orcamentos, []).filter((o) => o.categoria === nomeCategoria).length;
+  return { lancamentos, despesasFixas, orcamentos, total: lancamentos + despesasFixas + orcamentos };
+}
+
+/**
+ * Renomeia uma categoria em cascata: atualiza o campo `categoria` em
+ * todos os lançamentos, despesas fixas e orçamentos que referenciam o
+ * nome antigo. Usado tanto para renomear (nomeNovo diferente) quanto
+ * para migrar lançamentos de uma categoria para outra antes de excluir
+ * a original.
+ * @param {string} nomeAntigo
+ * @param {string} nomeNovo
+ * @returns {{lancamentos: number, despesasFixas: number, orcamentos: number}}
+ */
+export function renomearCategoriaEmTudo(nomeAntigo, nomeNovo) {
+  if (!nomeAntigo || !nomeNovo || nomeAntigo === nomeNovo) return { lancamentos: 0, despesasFixas: 0, orcamentos: 0 };
+
+  const agora = new Date().toISOString();
+
+  const lancamentos = lerBruto(CHAVES.lancamentos, []);
+  let totalLancamentos = 0;
+  const novosLancamentos = lancamentos.map((l) => {
+    if (l.categoria !== nomeAntigo) return l;
+    totalLancamentos++;
+    return { ...l, categoria: nomeNovo, atualizadoEm: agora };
+  });
+  if (totalLancamentos > 0) escreverBruto(CHAVES.lancamentos, novosLancamentos);
+
+  const despesasFixas = lerBruto(CHAVES.despesasFixas, []);
+  let totalDespesasFixas = 0;
+  const novasDespesasFixas = despesasFixas.map((d) => {
+    if (d.categoria !== nomeAntigo) return d;
+    totalDespesasFixas++;
+    return { ...d, categoria: nomeNovo };
+  });
+  if (totalDespesasFixas > 0) escreverBruto(CHAVES.despesasFixas, novasDespesasFixas);
+
+  // Orçamentos são únicos por (competencia, categoria) — se o destino já
+  // tiver orçamento na mesma competência, mantém o do destino e descarta
+  // o da origem, em vez de criar uma duplicata.
+  const orcamentos = lerBruto(CHAVES.orcamentos, []);
+  let totalOrcamentos = 0;
+  const chavesExistentes = new Set(
+    orcamentos.filter((o) => o.categoria === nomeNovo).map((o) => o.competencia)
+  );
+  const novosOrcamentos = [];
+  orcamentos.forEach((o) => {
+    if (o.categoria !== nomeAntigo) {
+      novosOrcamentos.push(o);
+      return;
+    }
+    totalOrcamentos++;
+    if (!chavesExistentes.has(o.competencia)) {
+      novosOrcamentos.push({ ...o, categoria: nomeNovo });
+    }
+  });
+  if (totalOrcamentos > 0) escreverBruto(CHAVES.orcamentos, novosOrcamentos);
+
+  return { lancamentos: totalLancamentos, despesasFixas: totalDespesasFixas, orcamentos: totalOrcamentos };
 }
 
 // ---------------------------------------------------------
@@ -445,6 +517,54 @@ export function adicionarFormaPagamento(nome) {
     substituirFormasPagamento(lista);
   }
   return lista;
+}
+
+/**
+ * Remove uma forma de pagamento da lista. Não apaga o valor já gravado
+ * nos lançamentos existentes — eles continuam mostrando o texto antigo.
+ * @param {string} nome
+ * @returns {string[]} lista atualizada
+ */
+export function removerFormaPagamento(nome) {
+  const lista = listarFormasPagamento().filter((f) => f.toLowerCase() !== (nome || "").toLowerCase());
+  substituirFormasPagamento(lista);
+  return lista;
+}
+
+/**
+ * Renomeia uma forma de pagamento na lista e em cascata em todos os
+ * lançamentos e despesas fixas que a usam.
+ * @param {string} nomeAntigo
+ * @param {string} nomeNovo
+ * @returns {{lancamentos: number, despesasFixas: number}}
+ */
+export function renomearFormaPagamento(nomeAntigo, nomeNovo) {
+  const normalizado = (nomeNovo || "").trim();
+  if (!normalizado || nomeAntigo === normalizado) return { lancamentos: 0, despesasFixas: 0 };
+
+  const lista = listarFormasPagamento().map((f) => (f === nomeAntigo ? normalizado : f));
+  substituirFormasPagamento(lista);
+
+  const agora = new Date().toISOString();
+  const lancamentos = lerBruto(CHAVES.lancamentos, []);
+  let totalLancamentos = 0;
+  const novosLancamentos = lancamentos.map((l) => {
+    if (l.formaPagamento !== nomeAntigo) return l;
+    totalLancamentos++;
+    return { ...l, formaPagamento: normalizado, atualizadoEm: agora };
+  });
+  if (totalLancamentos > 0) escreverBruto(CHAVES.lancamentos, novosLancamentos);
+
+  const despesasFixas = lerBruto(CHAVES.despesasFixas, []);
+  let totalDespesasFixas = 0;
+  const novasDespesasFixas = despesasFixas.map((d) => {
+    if (d.formaPagamento !== nomeAntigo) return d;
+    totalDespesasFixas++;
+    return { ...d, formaPagamento: normalizado };
+  });
+  if (totalDespesasFixas > 0) escreverBruto(CHAVES.despesasFixas, novasDespesasFixas);
+
+  return { lancamentos: totalLancamentos, despesasFixas: totalDespesasFixas };
 }
 
 // ---------------------------------------------------------

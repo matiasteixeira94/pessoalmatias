@@ -20,18 +20,61 @@
       <div class="cabecalho-pagina">
         <div>
           <h1 class="cabecalho-pagina__titulo">Categorias</h1>
-          <p class="cabecalho-pagina__subtitulo">Categorias e formas de pagamento.</p>
+          <p class="cabecalho-pagina__subtitulo">Categorias e formas de pagamento usadas nos lançamentos.</p>
         </div>
+        <button type="button" class="botao botao--primario" id="botao-nova-categoria">+ Nova categoria</button>
       </div>
 
       <section class="secao">
         <div class="card">
-          <h2 class="secao__titulo">Em construção</h2>
-          <p class="campo__ajuda" style="margin-top:var(--espaco-2)">
-            O cadastro (CRUD) de categorias e formas de pagamento será implementado na
-            Fase 3. As categorias padrão já estão disponíveis para uso em
-            <a class="botao--texto" href="./lancamentos.html">Lançamentos</a>.
-          </p>
+          <div class="barra-filtros">
+            <div class="campo">
+              <label class="campo__rotulo" for="filtro-tipo">Tipo</label>
+              <select class="campo__select" id="filtro-tipo">
+                <option value="">Todas</option>
+                <option value="despesa">Despesa</option>
+                <option value="receita">Receita</option>
+              </select>
+            </div>
+            <div class="campo">
+              <label class="campo__rotulo" for="filtro-situacao">Situação</label>
+              <select class="campo__select" id="filtro-situacao">
+                <option value="">Todas</option>
+                <option value="ativa">Ativas</option>
+                <option value="inativa">Inativas</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="tabela-wrap" style="margin-top:var(--espaco-4)">
+            <table class="tabela">
+              <thead>
+                <tr>
+                  <th>Categoria</th>
+                  <th>Tipo</th>
+                  <th>Em uso</th>
+                  <th>Situação</th>
+                  <th class="col-acoes">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="corpo-tabela-categorias"></tbody>
+            </table>
+            <div class="estado-vazio" id="estado-vazio-categorias" hidden>Nenhuma categoria encontrada.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="card">
+          <h2 class="secao__titulo">Formas de pagamento</h2>
+          <p class="campo__ajuda">Usadas no campo "Forma de pagamento" dos lançamentos.</p>
+
+          <form id="form-nova-forma" style="display:flex; gap:var(--espaco-2); margin-top:var(--espaco-4); flex-wrap:wrap">
+            <input class="campo__entrada" type="text" id="campo-nova-forma" placeholder="Ex.: Vale-alimentação" maxlength="40" style="flex:1; min-width:200px" />
+            <button type="submit" class="botao botao--secundario">+ Adicionar</button>
+          </form>
+
+          <div id="lista-formas-pagamento" style="display:flex; flex-wrap:wrap; gap:var(--espaco-2); margin-top:var(--espaco-4)"></div>
         </div>
       </section>
     </main>
@@ -39,7 +82,404 @@
 
   <script type="module">
     import { iniciarApp } from "./assets/js/app.js";
+    import {
+      listarCategorias,
+      salvarCategoria,
+      excluirCategoria,
+      obterCategoria,
+      contarUsosDaCategoria,
+      renomearCategoriaEmTudo,
+      listarFormasPagamento,
+      adicionarFormaPagamento,
+      removerFormaPagamento,
+      renomearFormaPagamento,
+      ErroArmazenamento,
+    } from "./assets/js/db.js";
+    import { criarCategoria, validarCategoria } from "./assets/js/modelos.js";
+    import { exibirToast, abrirModal, fecharModal, confirmarAcao, escaparHtml, chipCor } from "./assets/js/ui.js";
+
     await iniciarApp("categorias");
+
+    const corpoTabela = document.getElementById("corpo-tabela-categorias");
+    const estadoVazio = document.getElementById("estado-vazio-categorias");
+    const filtroTipo = document.getElementById("filtro-tipo");
+    const filtroSituacao = document.getElementById("filtro-situacao");
+
+    // ---------------------------------------------------------
+    // Tabela de categorias
+    // ---------------------------------------------------------
+
+    function categoriasFiltradas() {
+      const tipo = filtroTipo.value;
+      const situacao = filtroSituacao.value;
+      return listarCategorias().filter((c) => {
+        if (tipo && c.tipo !== tipo) return false;
+        if (situacao === "ativa" && !c.ativa) return false;
+        if (situacao === "inativa" && c.ativa) return false;
+        return true;
+      });
+    }
+
+    function linhaCategoria(categoria) {
+      const usos = contarUsosDaCategoria(categoria.nome);
+      const tr = document.createElement("tr");
+      if (!categoria.ativa) tr.style.opacity = "0.6";
+      tr.innerHTML = `
+        <td>${chipCor(categoria.cor)} ${escaparHtml(categoria.icone)} ${escaparHtml(categoria.nome)}</td>
+        <td>${categoria.tipo === "receita" ? "Receita" : "Despesa"}</td>
+        <td>${usos.total > 0 ? `${usos.total} lançamento(s)` : "—"}</td>
+        <td>${categoria.ativa ? '<span class="selo selo--pago">Ativa</span>' : '<span class="selo selo--pendente">Inativa</span>'}</td>
+        <td class="col-acoes">
+          <button type="button" class="botao botao--icone" data-acao="inativar" data-id="${categoria.id}" aria-label="${categoria.ativa ? "Inativar" : "Reativar"} categoria">${categoria.ativa ? "⏸️" : "▶️"}</button>
+          <button type="button" class="botao botao--icone" data-acao="editar" data-id="${categoria.id}" aria-label="Editar categoria">✏️</button>
+          <button type="button" class="botao botao--icone" data-acao="excluir" data-id="${categoria.id}" aria-label="Excluir categoria">🗑️</button>
+        </td>
+      `;
+      return tr;
+    }
+
+    function renderizarTabela() {
+      const lista = categoriasFiltradas();
+      corpoTabela.innerHTML = "";
+      if (lista.length === 0) {
+        estadoVazio.hidden = false;
+      } else {
+        estadoVazio.hidden = true;
+        lista.forEach((c) => corpoTabela.appendChild(linhaCategoria(c)));
+      }
+    }
+
+    // ---------------------------------------------------------
+    // Formulário (modal de nova/editar categoria)
+    // ---------------------------------------------------------
+
+    function abrirFormularioCategoria(categoriaExistente) {
+      const editando = Boolean(categoriaExistente);
+      const dados = categoriaExistente || criarCategoria({ tipo: "despesa" });
+
+      const conteudoHtml = `
+        <form id="form-categoria" novalidate>
+          <div class="grade-formulario">
+            <div class="campo">
+              <span class="campo__rotulo">Tipo <span class="obrigatorio">*</span></span>
+              <div class="segmentado" role="group" aria-label="Tipo de categoria">
+                <button type="button" class="segmentado__opcao" data-tipo="despesa" aria-pressed="${dados.tipo === "despesa"}" ${editando ? "disabled" : ""}>Despesa</button>
+                <button type="button" class="segmentado__opcao" data-tipo="receita" aria-pressed="${dados.tipo === "receita"}" ${editando ? "disabled" : ""}>Receita</button>
+              </div>
+              <input type="hidden" id="campo-tipo" value="${dados.tipo}" />
+              ${editando ? '<span class="campo__ajuda">O tipo não pode ser alterado depois de criada — crie uma nova categoria se precisar.</span>' : ""}
+            </div>
+
+            <div class="campo">
+              <label class="campo__rotulo" for="campo-nome">Nome <span class="obrigatorio">*</span></label>
+              <input class="campo__entrada" type="text" id="campo-nome" value="${escaparHtml(dados.nome)}" required maxlength="60" />
+              <span class="campo__erro" id="erro-nome"></span>
+            </div>
+
+            <div class="grade-formulario grade-formulario--2col">
+              <div class="campo">
+                <label class="campo__rotulo" for="campo-cor">Cor</label>
+                <div style="display:flex; gap:var(--espaco-2); align-items:center">
+                  <input type="color" id="campo-cor" value="${dados.cor}" style="width:48px; height:44px; padding:2px; border:1px solid var(--cor-borda-forte); border-radius:var(--raio-md)" />
+                  <input class="campo__entrada" type="text" id="campo-cor-texto" value="${dados.cor}" maxlength="7" pattern="^#[0-9a-fA-F]{6}$" style="flex:1" />
+                </div>
+                <span class="campo__erro" id="erro-cor"></span>
+              </div>
+              <div class="campo">
+                <label class="campo__rotulo" for="campo-icone">Ícone (emoji)</label>
+                <input class="campo__entrada" type="text" id="campo-icone" value="${escaparHtml(dados.icone)}" maxlength="4" />
+              </div>
+            </div>
+
+            <label class="campo" style="flex-direction:row; align-items:center; gap:var(--espaco-2)">
+              <input type="checkbox" id="campo-ativa" ${dados.ativa ? "checked" : ""} style="width:20px;height:20px" />
+              <span class="campo__rotulo" style="margin:0">Ativa (aparece para novos lançamentos)</span>
+            </label>
+          </div>
+
+          <div class="modal__rodape">
+            <button type="button" class="botao botao--secundario" data-acao-fechar-modal>Cancelar</button>
+            <button type="submit" class="botao botao--primario">${editando ? "Salvar alterações" : "Adicionar categoria"}</button>
+          </div>
+        </form>
+      `;
+
+      const fundo = abrirModal({ titulo: editando ? "Editar categoria" : "Nova categoria", conteudoHtml });
+
+      const campoTipoOculto = fundo.querySelector("#campo-tipo");
+      const botoesSegmentado = fundo.querySelectorAll(".segmentado__opcao");
+      botoesSegmentado.forEach((botao) => {
+        botao.addEventListener("click", () => {
+          if (botao.disabled) return;
+          botoesSegmentado.forEach((b) => b.setAttribute("aria-pressed", "false"));
+          botao.setAttribute("aria-pressed", "true");
+          campoTipoOculto.value = botao.dataset.tipo;
+        });
+      });
+
+      const campoCor = fundo.querySelector("#campo-cor");
+      const campoCorTexto = fundo.querySelector("#campo-cor-texto");
+      campoCor.addEventListener("input", () => (campoCorTexto.value = campoCor.value));
+      campoCorTexto.addEventListener("input", () => {
+        if (/^#[0-9a-fA-F]{6}$/.test(campoCorTexto.value)) campoCor.value = campoCorTexto.value;
+      });
+
+      const form = fundo.querySelector("#form-categoria");
+      form.addEventListener("submit", async (evento) => {
+        evento.preventDefault();
+
+        const nomeNovo = fundo.querySelector("#campo-nome").value.trim();
+        const candidato = {
+          ...dados,
+          tipo: campoTipoOculto.value,
+          nome: nomeNovo,
+          cor: campoCorTexto.value,
+          icone: fundo.querySelector("#campo-icone").value.trim() || "🏷️",
+          ativa: fundo.querySelector("#campo-ativa").checked,
+        };
+
+        const categoriaCandidata = criarCategoria(candidato);
+        const { valido, erros } = validarCategoria(categoriaCandidata);
+
+        // Nome duplicado (outra categoria já usando o mesmo nome).
+        const duplicada = listarCategorias().find(
+          (c) => c.id !== dados.id && c.nome.toLowerCase() === nomeNovo.toLowerCase()
+        );
+        if (duplicada) erros.nome = "Já existe uma categoria com esse nome.";
+
+        ["nome", "cor"].forEach((campo) => {
+          const elErro = fundo.querySelector(`#erro-${campo}`);
+          if (elErro) elErro.textContent = erros[campo] || "";
+        });
+
+        if (!valido || duplicada) return;
+
+        try {
+          const nomeAntigo = editando ? dados.nome : null;
+          salvarCategoria(editando ? { ...categoriaCandidata, id: dados.id } : categoriaCandidata);
+
+          if (editando && nomeAntigo && nomeAntigo !== nomeNovo) {
+            renomearCategoriaEmTudo(nomeAntigo, nomeNovo);
+          }
+
+          exibirToast(editando ? "Categoria atualizada." : "Categoria cadastrada.", "sucesso");
+          fecharModal();
+          renderizarTabela();
+        } catch (erro) {
+          if (erro instanceof ErroArmazenamento) {
+            exibirToast(erro.message, "erro");
+          } else {
+            console.error(erro);
+            exibirToast("Ocorreu um erro ao salvar a categoria.", "erro");
+          }
+        }
+      });
+    }
+
+    // ---------------------------------------------------------
+    // Exclusão (com checagem de uso: inativar ou migrar)
+    // ---------------------------------------------------------
+
+    async function abrirMigracao(categoria) {
+      const destinoOpcoes = listarCategorias({ apenasAtivas: true, tipo: categoria.tipo }).filter(
+        (c) => c.id !== categoria.id
+      );
+
+      if (destinoOpcoes.length === 0) {
+        exibirToast("Não há outra categoria ativa do mesmo tipo para migrar os lançamentos.", "info");
+        return;
+      }
+
+      const conteudoHtml = `
+        <form id="form-migrar" novalidate>
+          <p>Os lançamentos de "${escaparHtml(categoria.nome)}" passarão a usar a categoria escolhida, e "${escaparHtml(categoria.nome)}" será excluída.</p>
+          <div class="campo" style="margin-top:var(--espaco-4)">
+            <label class="campo__rotulo" for="campo-destino">Migrar lançamentos para</label>
+            <select class="campo__select" id="campo-destino">
+              ${destinoOpcoes.map((c) => `<option value="${escaparHtml(c.nome)}">${escaparHtml(c.icone)} ${escaparHtml(c.nome)}</option>`).join("")}
+            </select>
+          </div>
+          <div class="modal__rodape">
+            <button type="button" class="botao botao--secundario" data-acao-fechar-modal>Cancelar</button>
+            <button type="submit" class="botao botao--primario">Migrar e excluir</button>
+          </div>
+        </form>
+      `;
+
+      const fundo = abrirModal({ titulo: "Migrar lançamentos", conteudoHtml });
+      fundo.querySelector("#form-migrar").addEventListener("submit", (evento) => {
+        evento.preventDefault();
+        const destino = fundo.querySelector("#campo-destino").value;
+        const resultado = renomearCategoriaEmTudo(categoria.nome, destino);
+        excluirCategoria(categoria.id);
+        fecharModal();
+        exibirToast(
+          `${resultado.lancamentos} lançamento(s) migrado(s) para "${destino}". Categoria "${categoria.nome}" excluída.`,
+          "sucesso"
+        );
+        renderizarTabela();
+      });
+    }
+
+    async function excluirComVerificacao(id) {
+      const categoria = obterCategoria(id);
+      if (!categoria) return;
+
+      const usos = contarUsosDaCategoria(categoria.nome);
+
+      if (usos.total === 0) {
+        const confirmado = await confirmarAcao({
+          titulo: "Excluir categoria",
+          mensagem: `Excluir "${categoria.nome}"? Essa ação não pode ser desfeita.`,
+          textoConfirmar: "Excluir",
+          perigo: true,
+        });
+        if (!confirmado) return;
+        excluirCategoria(id);
+        exibirToast("Categoria excluída.", "sucesso");
+        renderizarTabela();
+        return;
+      }
+
+      // Em uso: não deixa excluir direto — oferece inativar ou migrar.
+      const conteudoHtml = `
+        <p>"${escaparHtml(categoria.nome)}" está em uso em ${usos.total} registro(s)
+        (${usos.lancamentos} lançamento(s), ${usos.despesasFixas} despesa(s) fixa(s), ${usos.orcamentos} orçamento(s)).
+        Não é possível excluir uma categoria em uso.</p>
+        <div class="modal__rodape">
+          <button type="button" class="botao botao--secundario" data-acao-fechar-modal>Cancelar</button>
+          <button type="button" class="botao botao--secundario" id="botao-so-inativar">Só inativar</button>
+          <button type="button" class="botao botao--primario" id="botao-migrar">Migrar para outra categoria</button>
+        </div>
+      `;
+      const fundo = abrirModal({ titulo: "Categoria em uso", conteudoHtml });
+      fundo.querySelector("#botao-so-inativar").addEventListener("click", () => {
+        salvarCategoria({ ...categoria, ativa: false });
+        fecharModal();
+        exibirToast("Categoria inativada — o histórico foi mantido.", "sucesso");
+        renderizarTabela();
+      });
+      fundo.querySelector("#botao-migrar").addEventListener("click", () => {
+        fecharModal();
+        abrirMigracao(categoria);
+      });
+    }
+
+    // ---------------------------------------------------------
+    // Eventos — categorias
+    // ---------------------------------------------------------
+
+    document.getElementById("botao-nova-categoria").addEventListener("click", () => abrirFormularioCategoria(null));
+    [filtroTipo, filtroSituacao].forEach((el) => el.addEventListener("change", renderizarTabela));
+
+    corpoTabela.addEventListener("click", (evento) => {
+      const botao = evento.target.closest("button[data-acao]");
+      if (!botao) return;
+      const id = botao.dataset.id;
+      if (botao.dataset.acao === "editar") {
+        abrirFormularioCategoria(obterCategoria(id));
+      } else if (botao.dataset.acao === "excluir") {
+        excluirComVerificacao(id);
+      } else if (botao.dataset.acao === "inativar") {
+        const categoria = obterCategoria(id);
+        if (!categoria) return;
+        salvarCategoria({ ...categoria, ativa: !categoria.ativa });
+        exibirToast(categoria.ativa ? "Categoria inativada." : "Categoria reativada.", "sucesso");
+        renderizarTabela();
+      }
+    });
+
+    // ---------------------------------------------------------
+    // Formas de pagamento
+    // ---------------------------------------------------------
+
+    const listaFormas = document.getElementById("lista-formas-pagamento");
+
+    function renderizarFormas() {
+      const formas = listarFormasPagamento();
+      listaFormas.innerHTML = formas
+        .map(
+          (forma) => `
+        <span class="selo selo--agendado" style="padding:var(--espaco-2) var(--espaco-3); font-size:var(--fonte-tamanho-sm)">
+          ${escaparHtml(forma)}
+          <button type="button" class="botao botao--icone" style="width:22px;height:22px" data-acao="renomear-forma" data-nome="${escaparHtml(forma)}" aria-label="Renomear ${escaparHtml(forma)}">✏️</button>
+          <button type="button" class="botao botao--icone" style="width:22px;height:22px" data-acao="excluir-forma" data-nome="${escaparHtml(forma)}" aria-label="Remover ${escaparHtml(forma)}">✕</button>
+        </span>
+      `
+        )
+        .join("");
+    }
+
+    function abrirRenomeacaoForma(nomeAtual) {
+      const conteudoHtml = `
+        <form id="form-renomear-forma" novalidate>
+          <div class="campo">
+            <label class="campo__rotulo" for="campo-forma-novo-nome">Novo nome</label>
+            <input class="campo__entrada" type="text" id="campo-forma-novo-nome" value="${escaparHtml(nomeAtual)}" maxlength="40" required />
+          </div>
+          <div class="modal__rodape">
+            <button type="button" class="botao botao--secundario" data-acao-fechar-modal>Cancelar</button>
+            <button type="submit" class="botao botao--primario">Salvar</button>
+          </div>
+        </form>
+      `;
+      const fundo = abrirModal({ titulo: `Renomear "${nomeAtual}"`, conteudoHtml });
+      const campoNome = fundo.querySelector("#campo-forma-novo-nome");
+      campoNome.focus();
+      campoNome.select();
+
+      fundo.querySelector("#form-renomear-forma").addEventListener("submit", (evento) => {
+        evento.preventDefault();
+        const novoNome = campoNome.value.trim();
+        if (!novoNome || novoNome === nomeAtual) {
+          fecharModal();
+          return;
+        }
+        const resultado = renomearFormaPagamento(nomeAtual, novoNome);
+        fecharModal();
+        renderizarFormas();
+        exibirToast(`Renomeada. ${resultado.lancamentos} lançamento(s) atualizado(s).`, "sucesso");
+      });
+    }
+
+    document.getElementById("form-nova-forma").addEventListener("submit", (evento) => {
+      evento.preventDefault();
+      const campo = document.getElementById("campo-nova-forma");
+      const nome = campo.value.trim();
+      if (!nome) return;
+      adicionarFormaPagamento(nome);
+      campo.value = "";
+      renderizarFormas();
+      exibirToast("Forma de pagamento adicionada.", "sucesso");
+    });
+
+    listaFormas.addEventListener("click", async (evento) => {
+      const botao = evento.target.closest("button[data-acao]");
+      if (!botao) return;
+      const nome = botao.dataset.nome;
+
+      if (botao.dataset.acao === "excluir-forma") {
+        const confirmado = await confirmarAcao({
+          titulo: "Remover forma de pagamento",
+          mensagem: `Remover "${nome}" da lista? Lançamentos que já usam esse valor não são alterados.`,
+          textoConfirmar: "Remover",
+          perigo: true,
+        });
+        if (!confirmado) return;
+        removerFormaPagamento(nome);
+        renderizarFormas();
+        exibirToast("Forma de pagamento removida.", "sucesso");
+      } else if (botao.dataset.acao === "renomear-forma") {
+        abrirRenomeacaoForma(nome);
+      }
+    });
+
+    // ---------------------------------------------------------
+    // Inicialização
+    // ---------------------------------------------------------
+
+    renderizarTabela();
+    renderizarFormas();
   </script>
 </body>
 </html>
