@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Orçamento — Gestão Financeira Matias</title>
-  <meta name="theme-color" content="#16596a" />
+  <meta name="theme-color" content="#015c91" />
   <link rel="stylesheet" href="./assets/css/reset.css" />
   <link rel="stylesheet" href="./assets/css/variaveis.css" />
   <link rel="stylesheet" href="./assets/css/componentes.css" />
@@ -20,17 +20,44 @@
       <div class="cabecalho-pagina">
         <div>
           <h1 class="cabecalho-pagina__titulo">Orçamento</h1>
-          <p class="cabecalho-pagina__subtitulo">Planejado x realizado por categoria, mês a mês.</p>
+          <p class="cabecalho-pagina__subtitulo">Planejado x realizado por categoria.</p>
+        </div>
+        <div style="display:flex; gap:var(--espaco-3); align-items:flex-end; flex-wrap:wrap">
+          <div class="campo" style="min-width:160px">
+            <label class="campo__rotulo" for="seletor-mes">Mês</label>
+            <input class="campo__entrada" type="month" id="seletor-mes" />
+          </div>
+          <button type="button" class="botao botao--secundario" id="botao-copiar-anterior">Copiar orçamento do mês anterior</button>
         </div>
       </div>
 
       <section class="secao">
-        <div class="card">
-          <h2 class="secao__titulo">Em construção</h2>
-          <p class="campo__ajuda" style="margin-top:var(--espaco-2)">
-            A definição de valores planejados por categoria e o acompanhamento de
-            consumo do orçamento serão implementados na Fase 2.
-          </p>
+        <div class="tabela-wrap">
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th>Categoria</th>
+                <th class="col-valor">Planejado</th>
+                <th class="col-valor">Realizado</th>
+                <th class="col-valor">Saldo</th>
+                <th>% consumido</th>
+              </tr>
+            </thead>
+            <tbody id="corpo-tabela-orcamento"></tbody>
+            <tfoot>
+              <tr>
+                <th>Total</th>
+                <th class="col-valor" id="total-planejado">R$ 0,00</th>
+                <th class="col-valor" id="total-realizado">R$ 0,00</th>
+                <th class="col-valor" id="total-saldo">R$ 0,00</th>
+                <th id="total-percentual">0%</th>
+              </tr>
+            </tfoot>
+          </table>
+          <div class="estado-vazio" id="estado-vazio" hidden>
+            Nenhuma categoria de despesa ativa. Cadastre categorias em
+            <a class="botao--texto" href="./categorias.html">Categorias</a>.
+          </div>
         </div>
       </section>
     </main>
@@ -38,7 +65,142 @@
 
   <script type="module">
     import { iniciarApp } from "./assets/js/app.js";
+    import { listarLancamentos, listarOrcamentos, listarCategorias, salvarOrcamento, ErroArmazenamento } from "./assets/js/db.js";
+    import { realizadoPorCategoria } from "./assets/js/calculos.js";
+    import { formatarMoeda, formatarPercentual, competenciaAtual, deslocarCompetencia, formatarCompetencia } from "./assets/js/formatadores.js";
+    import { exibirToast, confirmarAcao, escaparHtml } from "./assets/js/ui.js";
+
     await iniciarApp("orcamento");
+
+    const seletorMes = document.getElementById("seletor-mes");
+    seletorMes.value = competenciaAtual();
+    const corpoTabela = document.getElementById("corpo-tabela-orcamento");
+    const estadoVazio = document.getElementById("estado-vazio");
+
+    function nivelBarra(percentual) {
+      if (percentual > 1) return "estourado";
+      if (percentual > 0.8) return "atencao";
+      return "";
+    }
+
+    function linhaOrcamento(item) {
+      const percentual = Math.min(item.percentual, 1.5); // trava a barra visual em 150%
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escaparHtml(item.categoria)}</td>
+        <td class="col-valor">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            inputmode="decimal"
+            value="${item.planejado || ""}"
+            data-categoria="${escaparHtml(item.categoria)}"
+            class="campo__entrada"
+            style="height:36px; width:130px; text-align:right"
+            aria-label="Valor planejado para ${escaparHtml(item.categoria)}"
+          />
+        </td>
+        <td class="col-valor">${formatarMoeda(item.realizado)}</td>
+        <td class="col-valor ${item.saldo < 0 ? "valor-negativo" : ""}">${formatarMoeda(item.saldo)}</td>
+        <td style="min-width:140px">
+          <div style="display:flex; align-items:center; gap:var(--espaco-2)">
+            <div class="barra-progresso" style="flex:1">
+              <div class="barra-progresso__preenchimento" data-nivel="${nivelBarra(item.percentual)}" style="width:${Math.round(percentual * 100)}%"></div>
+            </div>
+            <small style="white-space:nowrap">${formatarPercentual(item.percentual)}</small>
+          </div>
+        </td>
+      `;
+      return tr;
+    }
+
+    function renderizar() {
+      const competencia = seletorMes.value || competenciaAtual();
+      const lancamentos = listarLancamentos();
+      const orcamentos = listarOrcamentos({ competencia });
+      const categoriasAtivas = listarCategorias({ apenasAtivas: true, tipo: "despesa" });
+
+      const cruzado = realizadoPorCategoria(lancamentos, orcamentos, competencia);
+      const mapaCruzado = new Map(cruzado.map((c) => [c.categoria, c]));
+
+      // Garante que toda categoria de despesa ativa apareça, mesmo sem
+      // orçamento ou gasto ainda neste mês.
+      const linhas = categoriasAtivas.map((cat) => {
+        const existente = mapaCruzado.get(cat.nome);
+        return existente || { categoria: cat.nome, planejado: 0, realizado: 0, saldo: 0, percentual: 0 };
+      });
+      // Categorias com orçamento/gasto mas que não estão mais ativas — não
+      // esconde o histórico.
+      cruzado.forEach((c) => {
+        if (!linhas.some((l) => l.categoria === c.categoria)) linhas.push(c);
+      });
+      linhas.sort((a, b) => b.realizado - a.realizado || b.planejado - a.planejado);
+
+      corpoTabela.innerHTML = "";
+      if (linhas.length === 0) {
+        estadoVazio.hidden = false;
+      } else {
+        estadoVazio.hidden = true;
+        linhas.forEach((item) => corpoTabela.appendChild(linhaOrcamento(item)));
+      }
+
+      const totalPlanejado = linhas.reduce((soma, l) => soma + l.planejado, 0);
+      const totalRealizado = linhas.reduce((soma, l) => soma + l.realizado, 0);
+      document.getElementById("total-planejado").textContent = formatarMoeda(totalPlanejado);
+      document.getElementById("total-realizado").textContent = formatarMoeda(totalRealizado);
+      document.getElementById("total-saldo").textContent = formatarMoeda(totalPlanejado - totalRealizado);
+      document.getElementById("total-percentual").textContent =
+        totalPlanejado > 0 ? formatarPercentual(totalRealizado / totalPlanejado) : "—";
+    }
+
+    corpoTabela.addEventListener("change", (evento) => {
+      const input = evento.target.closest("input[data-categoria]");
+      if (!input) return;
+
+      const competencia = seletorMes.value || competenciaAtual();
+      const categoria = input.dataset.categoria;
+      const valorPlanejado = input.value;
+
+      try {
+        salvarOrcamento({ competencia, categoria, valorPlanejado });
+        exibirToast(`Orçamento de "${categoria}" atualizado.`, "sucesso");
+        renderizar();
+      } catch (erro) {
+        if (erro instanceof ErroArmazenamento) {
+          exibirToast(erro.message, "erro");
+        } else {
+          console.error(erro);
+          exibirToast("Ocorreu um erro ao salvar o orçamento.", "erro");
+        }
+      }
+    });
+
+    document.getElementById("botao-copiar-anterior").addEventListener("click", async () => {
+      const competencia = seletorMes.value || competenciaAtual();
+      const mesAnterior = deslocarCompetencia(competencia, -1);
+      const orcamentosAnteriores = listarOrcamentos({ competencia: mesAnterior });
+
+      if (orcamentosAnteriores.length === 0) {
+        exibirToast(`Não há orçamento definido em ${formatarCompetencia(mesAnterior)} para copiar.`, "info");
+        return;
+      }
+
+      const confirmado = await confirmarAcao({
+        titulo: "Copiar orçamento do mês anterior",
+        mensagem: `Copiar ${orcamentosAnteriores.length} categoria(s) planejada(s) em ${formatarCompetencia(mesAnterior)} para ${formatarCompetencia(competencia)}? Valores já definidos neste mês serão substituídos.`,
+        textoConfirmar: "Copiar",
+      });
+      if (!confirmado) return;
+
+      orcamentosAnteriores.forEach((o) => salvarOrcamento({ competencia, categoria: o.categoria, valorPlanejado: o.valorPlanejado }));
+      exibirToast("Orçamento copiado.", "sucesso");
+      renderizar();
+    });
+
+    seletorMes.addEventListener("change", renderizar);
+
+    renderizar();
   </script>
 </body>
 </html>
