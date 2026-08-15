@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Painel — Gestão Financeira Matias</title>
-  <meta name="theme-color" content="#16596a" />
+  <meta name="theme-color" content="#015c91" />
   <link rel="stylesheet" href="./assets/css/reset.css" />
   <link rel="stylesheet" href="./assets/css/variaveis.css" />
   <link rel="stylesheet" href="./assets/css/componentes.css" />
@@ -20,27 +20,274 @@
       <div class="cabecalho-pagina">
         <div>
           <h1 class="cabecalho-pagina__titulo">Painel</h1>
-          <p class="cabecalho-pagina__subtitulo">Visão geral do mês — cards, gráficos e comparativo.</p>
+          <p class="cabecalho-pagina__subtitulo" id="subtitulo-competencia">Visão geral do mês.</p>
+        </div>
+        <div class="campo" style="min-width:160px">
+          <label class="campo__rotulo" for="seletor-mes">Mês</label>
+          <input class="campo__entrada" type="month" id="seletor-mes" />
         </div>
       </div>
 
+      <section class="secao" id="secao-alerta-orcamento" hidden>
+        <div class="card" style="border-color:var(--cor-erro-600); background:var(--cor-erro-100)">
+          <div class="card__titulo" style="color:var(--cor-erro-700)">⚠️ Categorias com orçamento estourado</div>
+          <div id="lista-alerta-orcamento" style="margin-top:var(--espaco-2); display:flex; flex-direction:column; gap:var(--espaco-1)"></div>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="grade-cards">
+          <div class="card">
+            <div class="card__titulo">Receitas do mês</div>
+            <div class="card__valor valor-positivo" id="card-receitas">R$ 0,00</div>
+            <div class="card__rodape" id="card-receitas-comparativo"></div>
+          </div>
+          <div class="card">
+            <div class="card__titulo">Despesas do mês</div>
+            <div class="card__valor valor-negativo" id="card-despesas">R$ 0,00</div>
+            <div class="card__rodape" id="card-despesas-comparativo"></div>
+          </div>
+          <div class="card">
+            <div class="card__titulo">Saldo do mês</div>
+            <div class="card__valor" id="card-saldo">R$ 0,00</div>
+            <div class="card__rodape" id="card-saldo-comparativo"></div>
+          </div>
+          <div class="card">
+            <div class="card__titulo">Orçamento consumido</div>
+            <div class="card__valor" id="card-orcamento">—</div>
+            <div class="card__rodape" id="card-orcamento-detalhe"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="secao">
         <div class="card">
-          <h2 class="secao__titulo">Em construção</h2>
-          <p class="campo__ajuda" style="margin-top:var(--espaco-2)">
-            O painel (cards do mês, comparativo com mês anterior e gráficos) será implementado
-            na Fase 2. Por enquanto, use
-            <a class="botao--texto" href="./lancamentos.html">Lançamentos</a>
-            para cadastrar suas receitas e despesas.
-          </p>
+          <h2 class="secao__titulo">Linha do tempo de gastos</h2>
+          <p class="campo__ajuda">Total de despesas mês a mês, últimos 12 meses.</p>
+          <div style="height:240px; margin-top:var(--espaco-4)">
+            <canvas id="grafico-linha-gastos"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="card">
+          <h2 class="secao__titulo">Maiores gastos por categoria</h2>
+          <p class="campo__ajuda" id="subtitulo-ranking">Despesas do mês, por categoria.</p>
+          <div style="height:280px; margin-top:var(--espaco-4)">
+            <canvas id="grafico-ranking-categorias"></canvas>
+          </div>
+          <div class="estado-vazio" id="estado-vazio-ranking" hidden>Nenhuma despesa neste mês ainda.</div>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="card">
+          <h2 class="secao__titulo">Receitas x despesas</h2>
+          <p class="campo__ajuda">Últimos 6 meses.</p>
+          <div style="height:240px; margin-top:var(--espaco-4)">
+            <canvas id="grafico-barras-6meses"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="cabecalho-pagina">
+          <h2 class="secao__titulo">Últimos lançamentos</h2>
+          <a class="botao botao--texto" id="link-ver-todos" href="./lancamentos.html">Ver todos →</a>
+        </div>
+        <div class="tabela-wrap">
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Status</th>
+                <th class="col-valor">Valor</th>
+              </tr>
+            </thead>
+            <tbody id="corpo-ultimos-lancamentos"></tbody>
+          </table>
+          <div class="estado-vazio" id="estado-vazio-ultimos" hidden>Nenhum lançamento neste mês ainda.</div>
         </div>
       </section>
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script type="module">
     import { iniciarApp } from "./assets/js/app.js";
+    import { listarLancamentos, listarOrcamentos, listarCategorias } from "./assets/js/db.js";
+    import {
+      saldoDoMes,
+      compararComMesAnterior,
+      totalPorCategoria,
+      evolucaoMensal,
+      realizadoPorCategoria,
+      agruparTopCategorias,
+    } from "./assets/js/calculos.js";
+    import { graficoLinha, graficoBarrasReceitaDespesa, graficoRanking } from "./assets/js/graficos.js";
+    import {
+      formatarMoeda,
+      formatarPercentual,
+      formatarData,
+      formatarCompetencia,
+      competenciaAtual,
+    } from "./assets/js/formatadores.js";
+    import { escaparHtml, seloStatus } from "./assets/js/ui.js";
+
     await iniciarApp("painel");
+
+    const seletorMes = document.getElementById("seletor-mes");
+    seletorMes.value = competenciaAtual();
+
+    function renderizarCards(lancamentos, competencia) {
+      const comparativo = compararComMesAnterior(lancamentos, competencia);
+
+      document.getElementById("card-receitas").textContent = formatarMoeda(comparativo.receitas.atual);
+      document.getElementById("card-despesas").textContent = formatarMoeda(comparativo.despesas.atual);
+
+      const saldoEl = document.getElementById("card-saldo");
+      saldoEl.textContent = formatarMoeda(comparativo.saldo.atual);
+      saldoEl.className = `card__valor ${comparativo.saldo.atual >= 0 ? "valor-positivo" : "valor-negativo"}`;
+
+      const rodapeComparativo = (chave, inverterCor) => {
+        const { variacaoAbs, variacaoPct } = comparativo[chave];
+        if (comparativo[chave].anterior === 0 && comparativo[chave].atual === 0) return "Sem dados no mês anterior";
+        const sinal = variacaoAbs >= 0 ? "+" : "";
+        const positivo = inverterCor ? variacaoAbs <= 0 : variacaoAbs >= 0;
+        const cor = positivo ? "var(--cor-receita)" : "var(--cor-despesa)";
+        return `<span style="color:${cor}">${sinal}${formatarMoeda(variacaoAbs)} (${sinal}${formatarPercentual(variacaoPct)})</span> vs. mês anterior`;
+      };
+
+      document.getElementById("card-receitas-comparativo").innerHTML = rodapeComparativo("receitas", false);
+      document.getElementById("card-despesas-comparativo").innerHTML = rodapeComparativo("despesas", true);
+      document.getElementById("card-saldo-comparativo").innerHTML = rodapeComparativo("saldo", false);
+    }
+
+    function renderizarOrcamento(lancamentos, competencia) {
+      const orcamentos = listarOrcamentos({ competencia });
+      const cruzado = realizadoPorCategoria(lancamentos, orcamentos, competencia);
+      const totalPlanejado = cruzado.reduce((soma, c) => soma + c.planejado, 0);
+      const totalRealizado = cruzado.reduce((soma, c) => soma + c.realizado, 0);
+
+      const cardOrcamento = document.getElementById("card-orcamento");
+      const detalheOrcamento = document.getElementById("card-orcamento-detalhe");
+
+      if (totalPlanejado === 0) {
+        cardOrcamento.textContent = "—";
+        detalheOrcamento.innerHTML = `Nenhum orçamento definido. <a class="botao--texto" href="./orcamento.html">Definir agora</a>`;
+      } else {
+        const percentual = totalRealizado / totalPlanejado;
+        cardOrcamento.textContent = formatarPercentual(percentual);
+        cardOrcamento.style.color = percentual > 1 ? "var(--cor-despesa)" : percentual > 0.8 ? "var(--cor-alerta-600)" : "";
+        detalheOrcamento.textContent = `${formatarMoeda(totalRealizado)} de ${formatarMoeda(totalPlanejado)}`;
+      }
+
+      const estouradas = cruzado.filter((c) => c.planejado > 0 && c.realizado > c.planejado);
+      const secaoAlerta = document.getElementById("secao-alerta-orcamento");
+      const listaAlerta = document.getElementById("lista-alerta-orcamento");
+
+      if (estouradas.length === 0) {
+        secaoAlerta.hidden = true;
+      } else {
+        secaoAlerta.hidden = false;
+        listaAlerta.innerHTML = estouradas
+          .map(
+            (c) =>
+              `<div>${escaparHtml(c.categoria)}: <strong>${formatarMoeda(c.realizado)}</strong> de ${formatarMoeda(c.planejado)} planejados (${formatarPercentual(c.percentual)})</div>`
+          )
+          .join("");
+      }
+    }
+
+    function renderizarGraficoLinha(lancamentos, competencia) {
+      const meses = evolucaoMensal(lancamentos, 12, competencia);
+      graficoLinha(document.getElementById("grafico-linha-gastos"), {
+        labels: meses.map((m) => formatarCompetencia(m.competencia).replace(/\/\d{2}(\d{2})$/, "/$1")),
+        dados: meses.map((m) => m.despesas),
+        rotulo: "Despesas",
+      });
+    }
+
+    function renderizarGraficoBarras6Meses(lancamentos, competencia) {
+      const meses = evolucaoMensal(lancamentos, 6, competencia);
+      graficoBarrasReceitaDespesa(document.getElementById("grafico-barras-6meses"), {
+        labels: meses.map((m) => formatarCompetencia(m.competencia).replace(/\/\d{2}(\d{2})$/, "/$1")),
+        receitas: meses.map((m) => m.receitas),
+        despesas: meses.map((m) => m.despesas),
+      });
+    }
+
+    function renderizarRankingCategorias(lancamentos, competencia) {
+      const totais = agruparTopCategorias(totalPorCategoria(lancamentos, competencia, "despesa"));
+      const canvas = document.getElementById("grafico-ranking-categorias");
+      const estadoVazio = document.getElementById("estado-vazio-ranking");
+
+      if (totais.length === 0) {
+        canvas.closest("div").style.display = "none";
+        estadoVazio.hidden = false;
+        return;
+      }
+      canvas.closest("div").style.display = "";
+      estadoVazio.hidden = true;
+
+      // Chart.js desenha o primeiro rótulo no topo — como `totais` já vem
+      // ordenado do maior para o menor, a maior despesa fica em cima.
+      graficoRanking(canvas, {
+        rotulos: totais.map((c) => c.categoria),
+        valores: totais.map((c) => c.total),
+      });
+    }
+
+    function renderizarUltimosLancamentos(lancamentos, competencia) {
+      const doMes = lancamentos.filter((l) => l.competencia === competencia).slice(0, 5);
+      const corpo = document.getElementById("corpo-ultimos-lancamentos");
+      const estadoVazio = document.getElementById("estado-vazio-ultimos");
+      corpo.innerHTML = "";
+
+      if (doMes.length === 0) {
+        estadoVazio.hidden = false;
+      } else {
+        estadoVazio.hidden = true;
+        const categorias = listarCategorias();
+        doMes.forEach((l) => {
+          const classeValor = l.tipo === "receita" ? "valor-positivo" : "valor-negativo";
+          const sinal = l.tipo === "receita" ? "+" : "−";
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${formatarData(l.data)}</td>
+            <td>${escaparHtml(l.descricao)}</td>
+            <td>${escaparHtml(l.categoria)}</td>
+            <td>${seloStatus(l.status)}</td>
+            <td class="col-valor ${classeValor}">${sinal} ${formatarMoeda(l.valor)}</td>
+          `;
+          corpo.appendChild(tr);
+        });
+      }
+
+      document.getElementById("link-ver-todos").href = `./lancamentos.html?mes=${competencia}`;
+    }
+
+    function renderizarTudo() {
+      const competencia = seletorMes.value || competenciaAtual();
+      const lancamentos = listarLancamentos();
+
+      document.getElementById("subtitulo-competencia").textContent = `Visão geral de ${formatarCompetencia(competencia)}.`;
+      document.getElementById("subtitulo-ranking").textContent = `Despesas de ${formatarCompetencia(competencia)}, por categoria.`;
+
+      renderizarCards(lancamentos, competencia);
+      renderizarOrcamento(lancamentos, competencia);
+      renderizarGraficoLinha(lancamentos, competencia);
+      renderizarGraficoBarras6Meses(lancamentos, competencia);
+      renderizarRankingCategorias(lancamentos, competencia);
+      renderizarUltimosLancamentos(lancamentos, competencia);
+    }
+
+    seletorMes.addEventListener("change", renderizarTudo);
+
+    renderizarTudo();
   </script>
 </body>
 </html>
