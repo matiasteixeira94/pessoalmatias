@@ -3,15 +3,14 @@
 Sistema web de gestão financeira pessoal — lançamentos, orçamento por
 categoria e relatórios, pensado para uso diário no computador e no celular.
 
-> **Status:** Fase 2 concluída (painel, orçamento, relatórios e despesas
-> fixas recorrentes). Categorias, importação/exportação de planilha e PWA
-> chegam nas próximas fases.
+> **Status:** Fase 3 concluída (categorias, importação/exportação de
+> planilha e backup). PWA offline e acessibilidade chegam na próxima fase.
 
 ## Stack
 
 - HTML5 + CSS3 puro + JavaScript ES6 (módulos nativos, sem build step)
 - [Chart.js](https://www.chartjs.org/) via CDN (painel e relatórios)
-- [SheetJS (xlsx)](https://sheetjs.com/) via CDN (planilha — Fase 3)
+- [SheetJS (xlsx)](https://sheetjs.com/) via CDN (planilha)
 - Persistência: `localStorage`, com camada de acesso isolada em `assets/js/db.js`
 - PWA (manifest + service worker) — Fase 4
 - Deploy: [Vercel](https://vercel.com/) (site estático, sem build)
@@ -60,6 +59,6 @@ Ver [docs/ESTRUTURA-DADOS.md](./docs/ESTRUTURA-DADOS.md).
 
 - [x] **Fase 1** — estrutura, design system, base de dados e `lancamentos.html`
 - [x] **Fase 2** — painel, orçamento, relatórios e despesas fixas recorrentes
-- [ ] **Fase 3** — categorias, importação/exportação de planilha e backup
+- [x] **Fase 3** — categorias, importação/exportação de planilha e backup
 - [ ] **Fase 4** — PWA offline, acessibilidade e ajustes finais
 - [ ] **Fase 5** — publicação (GitHub + Vercel)
