@@ -5,14 +5,17 @@
    =========================================================== */
 
 :root {
-  /* ---- Cor primária: azul-petróleo ---- */
-  --cor-primaria-900: #0b2b33;
-  --cor-primaria-700: #114652;
-  --cor-primaria-600: #16596a;
-  --cor-primaria-500: #1c6d82;
-  --cor-primaria-400: #2f8ba1;
-  --cor-primaria-100: #dceef2;
-  --cor-primaria-50: #f0f8fa;
+  /* ---- Cor primária: azul do dashboard ----
+     Escala derivada das 4 cores de referência do usuário:
+     #015C91 (700), #2C82B5 (500), #88CDF6 (300), #BCE5FF (100) */
+  --cor-primaria-900: #013456;
+  --cor-primaria-700: #015c91;
+  --cor-primaria-600: #176fa3;
+  --cor-primaria-500: #2c82b5;
+  --cor-primaria-400: #5aa8d6;
+  --cor-primaria-300: #88cdf6;
+  --cor-primaria-100: #bce5ff;
+  --cor-primaria-50: #eaf6ff;
 
   /* ---- Semânticas: receita/positivo (verde) e despesa/negativo (vermelho terroso) ---- */
   --cor-sucesso-700: #1f5c3f;
@@ -113,10 +116,14 @@
     --cor-texto-fraco: #7c8985;
     --cor-texto-inverso: #10161a;
 
-    --cor-primaria-100: #16323a;
-    --cor-primaria-50: #12262c;
-    --cor-primaria-400: #4ba3b8;
-    --cor-primaria-500: #3f95ab;
+    --cor-primaria-900: #d6effe;
+    --cor-primaria-700: #6cbdf2;
+    --cor-primaria-600: #4ba9e6;
+    --cor-primaria-500: #3d93d1;
+    --cor-primaria-400: #2f79ac;
+    --cor-primaria-300: #235f85;
+    --cor-primaria-100: #16323f;
+    --cor-primaria-50: #10242e;
 
     --cor-sucesso-100: #17301f;
     --cor-sucesso-500: #4caf7c;
