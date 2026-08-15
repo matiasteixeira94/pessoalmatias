@@ -20,25 +20,328 @@
       <div class="cabecalho-pagina">
         <div>
           <h1 class="cabecalho-pagina__titulo">Configurações</h1>
-          <p class="cabecalho-pagina__subtitulo">Backup, importação/exportação e preferências.</p>
+          <p class="cabecalho-pagina__subtitulo">Planilha, backup e preferências.</p>
         </div>
       </div>
 
       <section class="secao">
         <div class="card">
-          <h2 class="secao__titulo">Em construção</h2>
-          <p class="campo__ajuda" style="margin-top:var(--espaco-2)">
-            Backup/restauração, importação de planilha, limpeza de dados e a definição
-            do mês de início do ano financeiro serão implementados na Fase 3.
+          <h2 class="secao__titulo">Planilha</h2>
+          <p class="campo__ajuda" style="margin-top:var(--espaco-1)">
+            Importe lançamentos de uma planilha .xlsx (aba "Lançamentos") ou exporte os
+            lançamentos atuais no mesmo formato.
           </p>
+
+          <div style="display:flex; gap:var(--espaco-2); flex-wrap:wrap; margin-top:var(--espaco-4)">
+            <button type="button" class="botao botao--secundario" id="botao-modelo-planilha">⬇ Baixar planilha modelo</button>
+            <button type="button" class="botao botao--secundario" id="botao-exportar-planilha">⬇ Exportar lançamentos (.xlsx)</button>
+            <label class="botao botao--primario" style="cursor:pointer">
+              ⬆ Importar planilha
+              <input type="file" id="campo-arquivo-planilha" accept=".xlsx,.xls,.csv" style="display:none" />
+            </label>
+          </div>
+
+          <div id="painel-preview-importacao" hidden style="margin-top:var(--espaco-5)"></div>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="card">
+          <h2 class="secao__titulo">Backup</h2>
+          <p class="campo__ajuda" style="margin-top:var(--espaco-1)">
+            O backup inclui lançamentos, categorias, orçamentos, despesas fixas, formas de
+            pagamento e preferências — tudo o que o app guarda neste dispositivo.
+          </p>
+
+          <div style="display:flex; gap:var(--espaco-2); flex-wrap:wrap; margin-top:var(--espaco-4)">
+            <button type="button" class="botao botao--secundario" id="botao-exportar-backup">⬇ Exportar backup (.json)</button>
+            <label class="botao botao--secundario" style="cursor:pointer">
+              ⬆ Restaurar backup
+              <input type="file" id="campo-arquivo-backup" accept=".json" style="display:none" />
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="card">
+          <h2 class="secao__titulo">Preferências</h2>
+          <div class="campo" style="max-width:280px; margin-top:var(--espaco-4)">
+            <label class="campo__rotulo" for="campo-mes-inicio">Mês de início do ano financeiro</label>
+            <select class="campo__select" id="campo-mes-inicio">
+              <option value="1">Janeiro</option>
+              <option value="2">Fevereiro</option>
+              <option value="3">Março</option>
+              <option value="4">Abril</option>
+              <option value="5">Maio</option>
+              <option value="6">Junho</option>
+              <option value="7">Julho</option>
+              <option value="8">Agosto</option>
+              <option value="9">Setembro</option>
+              <option value="10">Outubro</option>
+              <option value="11">Novembro</option>
+              <option value="12">Dezembro</option>
+            </select>
+            <span class="campo__ajuda">Usado como referência para relatórios anuais futuros.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="card" style="border-color:var(--cor-erro-600)">
+          <h2 class="secao__titulo" style="color:var(--cor-erro-700)">Zona de risco</h2>
+          <p class="campo__ajuda" style="margin-top:var(--espaco-1)">
+            Apaga todos os dados guardados neste dispositivo (lançamentos, categorias,
+            orçamentos, despesas fixas). Não afeta backups já exportados. Essa ação não pode
+            ser desfeita.
+          </p>
+          <button type="button" class="botao botao--perigo" id="botao-limpar-dados" style="margin-top:var(--espaco-4)">
+            Apagar todos os dados
+          </button>
         </div>
       </section>
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script type="module">
     import { iniciarApp } from "./assets/js/app.js";
+    import {
+      listarLancamentos,
+      salvarLancamento,
+      listarCategorias,
+      obterConfig,
+      salvarConfig,
+      exportarTudo,
+      restaurarTudo,
+      limparTudo,
+      ErroArmazenamento,
+    } from "./assets/js/db.js";
+    import {
+      lerPlanilha,
+      prepararImportacao,
+      exportarLancamentosParaPlanilha,
+      baixarModeloPlanilha,
+      exportarBackupJson,
+      lerBackupJson,
+    } from "./assets/js/importar-exportar.js";
+    import { exibirToast, confirmarAcao, abrirModal, fecharModal, escaparHtml } from "./assets/js/ui.js";
+
     await iniciarApp("configuracoes");
+
+    // ---------------------------------------------------------
+    // Preferências
+    // ---------------------------------------------------------
+
+    const campoMesInicio = document.getElementById("campo-mes-inicio");
+    campoMesInicio.value = String(obterConfig().mesInicioAnoFinanceiro);
+    campoMesInicio.addEventListener("change", () => {
+      salvarConfig({ mesInicioAnoFinanceiro: Number(campoMesInicio.value) });
+      exibirToast("Preferência salva.", "sucesso");
+    });
+
+    // ---------------------------------------------------------
+    // Planilha — modelo e exportação
+    // ---------------------------------------------------------
+
+    document.getElementById("botao-modelo-planilha").addEventListener("click", () => {
+      baixarModeloPlanilha();
+      exibirToast("Planilha modelo baixada.", "sucesso");
+    });
+
+    document.getElementById("botao-exportar-planilha").addEventListener("click", () => {
+      const lancamentos = listarLancamentos();
+      if (lancamentos.length === 0) {
+        exibirToast("Nenhum lançamento para exportar ainda.", "info");
+        return;
+      }
+      exportarLancamentosParaPlanilha(lancamentos, `lancamentos-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      exibirToast("Planilha exportada.", "sucesso");
+    });
+
+    // ---------------------------------------------------------
+    // Planilha — importação com pré-visualização
+    // ---------------------------------------------------------
+
+    const painelPreview = document.getElementById("painel-preview-importacao");
+
+    function linhasErroHtml(invalidos) {
+      if (invalidos.length === 0) return "";
+      return `
+        <details style="margin-top:var(--espaco-3)">
+          <summary style="cursor:pointer; color:var(--cor-erro-700)">${invalidos.length} linha(s) com erro (não serão importadas)</summary>
+          <ul style="margin-top:var(--espaco-2); padding-left:var(--espaco-5); display:flex; flex-direction:column; gap:var(--espaco-1)">
+            ${invalidos.map((i) => `<li>Linha ${i.linha}: ${escaparHtml(i.erros.join(" "))}</li>`).join("")}
+          </ul>
+        </details>
+      `;
+    }
+
+    async function processarArquivoPlanilha(arquivo) {
+      let linhas;
+      try {
+        linhas = await lerPlanilha(arquivo);
+      } catch (erro) {
+        exibirToast(erro.message, "erro");
+        return;
+      }
+
+      if (linhas.length === 0) {
+        exibirToast("A planilha não tem linhas para importar.", "info");
+        return;
+      }
+
+      const resultado = prepararImportacao(linhas, listarLancamentos());
+      const categoriasConhecidas = new Set(listarCategorias().map((c) => c.nome));
+      const semCategoriaConhecida = resultado.validos.filter((v) => !categoriasConhecidas.has(v.lancamento.categoria));
+
+      painelPreview.hidden = false;
+      painelPreview.innerHTML = `
+        <div class="card" style="background:var(--cor-fundo-sutil)">
+          <h3 class="secao__titulo">Pré-visualização da importação</h3>
+          <div class="grade-cards" style="margin-top:var(--espaco-3)">
+            <div class="card">
+              <div class="card__titulo">Válidas</div>
+              <div class="card__valor valor-positivo">${resultado.validos.length}</div>
+            </div>
+            <div class="card">
+              <div class="card__titulo">Com erro</div>
+              <div class="card__valor ${resultado.invalidos.length > 0 ? "valor-negativo" : ""}">${resultado.invalidos.length}</div>
+            </div>
+            <div class="card">
+              <div class="card__titulo">Duplicadas</div>
+              <div class="card__valor">${resultado.duplicados.length}</div>
+            </div>
+          </div>
+
+          ${semCategoriaConhecida.length > 0 ? `<p class="campo__ajuda" style="margin-top:var(--espaco-3)">⚠️ ${semCategoriaConhecida.length} linha(s) válida(s) usam categorias que ainda não existem em <a class="botao--texto" href="./categorias.html">Categorias</a> — serão importadas mesmo assim, com o nome da planilha.</p>` : ""}
+
+          ${linhasErroHtml(resultado.invalidos)}
+
+          ${
+            resultado.duplicados.length > 0
+              ? `
+            <label class="campo" style="flex-direction:row; align-items:center; gap:var(--espaco-2); margin-top:var(--espaco-4)">
+              <input type="checkbox" id="campo-importar-duplicados" style="width:20px;height:20px" />
+              <span class="campo__rotulo" style="margin:0">Importar também as ${resultado.duplicados.length} linha(s) duplicada(s) (mesma data, valor e descrição de um lançamento já existente)</span>
+            </label>
+          `
+              : ""
+          }
+
+          <div class="modal__rodape" style="justify-content:flex-start; margin-top:var(--espaco-5)">
+            <button type="button" class="botao botao--primario" id="botao-confirmar-importacao" ${resultado.validos.length === 0 ? "disabled" : ""}>
+              Confirmar importação
+            </button>
+            <button type="button" class="botao botao--secundario" id="botao-cancelar-importacao">Cancelar</button>
+          </div>
+        </div>
+      `;
+
+      document.getElementById("botao-cancelar-importacao").addEventListener("click", () => {
+        painelPreview.hidden = true;
+        painelPreview.innerHTML = "";
+      });
+
+      document.getElementById("botao-confirmar-importacao").addEventListener("click", () => {
+        const importarDuplicados = document.getElementById("campo-importar-duplicados")?.checked;
+        const itens = importarDuplicados ? [...resultado.validos, ...resultado.duplicados] : resultado.validos;
+
+        try {
+          itens.forEach((item) => salvarLancamento(item.lancamento));
+          exibirToast(`${itens.length} lançamento(s) importado(s).`, "sucesso");
+          painelPreview.hidden = true;
+          painelPreview.innerHTML = "";
+        } catch (erro) {
+          if (erro instanceof ErroArmazenamento) {
+            exibirToast(erro.message, "erro");
+          } else {
+            console.error(erro);
+            exibirToast("Ocorreu um erro ao importar os lançamentos.", "erro");
+          }
+        }
+      });
+    }
+
+    document.getElementById("campo-arquivo-planilha").addEventListener("change", (evento) => {
+      const arquivo = evento.target.files[0];
+      evento.target.value = ""; // permite selecionar o mesmo arquivo de novo depois
+      if (arquivo) processarArquivoPlanilha(arquivo);
+    });
+
+    // ---------------------------------------------------------
+    // Backup — exportar/restaurar
+    // ---------------------------------------------------------
+
+    document.getElementById("botao-exportar-backup").addEventListener("click", () => {
+      exportarBackupJson(exportarTudo());
+      exibirToast("Backup exportado.", "sucesso");
+    });
+
+    document.getElementById("campo-arquivo-backup").addEventListener("change", async (evento) => {
+      const arquivo = evento.target.files[0];
+      evento.target.value = "";
+      if (!arquivo) return;
+
+      const confirmado = await confirmarAcao({
+        titulo: "Restaurar backup",
+        mensagem: `Restaurar "${arquivo.name}" vai substituir TODOS os dados atuais (lançamentos, categorias, orçamentos, despesas fixas). Essa ação não pode ser desfeita. Continuar?`,
+        textoConfirmar: "Restaurar e substituir",
+        perigo: true,
+      });
+      if (!confirmado) return;
+
+      try {
+        const backup = await lerBackupJson(arquivo);
+        restaurarTudo(backup);
+        exibirToast("Backup restaurado. Recarregando...", "sucesso");
+        setTimeout(() => window.location.reload(), 1200);
+      } catch (erro) {
+        exibirToast(erro.message || "Não foi possível restaurar o backup.", "erro");
+      }
+    });
+
+    // ---------------------------------------------------------
+    // Zona de risco — apagar tudo (dupla confirmação)
+    // ---------------------------------------------------------
+
+    document.getElementById("botao-limpar-dados").addEventListener("click", async () => {
+      const primeiraConfirmacao = await confirmarAcao({
+        titulo: "Apagar todos os dados",
+        mensagem: "Isso apaga permanentemente todos os lançamentos, categorias, orçamentos e despesas fixas deste dispositivo. Exporte um backup antes, se quiser manter os dados.",
+        textoConfirmar: "Quero apagar tudo",
+        perigo: true,
+      });
+      if (!primeiraConfirmacao) return;
+
+      const conteudoHtml = `
+        <p>Para confirmar, digite <strong>APAGAR</strong> no campo abaixo.</p>
+        <form id="form-confirmar-exclusao" novalidate>
+          <div class="campo" style="margin-top:var(--espaco-3)">
+            <input class="campo__entrada" type="text" id="campo-confirmar-texto" autocomplete="off" />
+          </div>
+          <div class="modal__rodape">
+            <button type="button" class="botao botao--secundario" data-acao-fechar-modal>Cancelar</button>
+            <button type="submit" class="botao botao--perigo">Apagar definitivamente</button>
+          </div>
+        </form>
+      `;
+      const fundo = abrirModal({ titulo: "Confirmação final", conteudoHtml });
+      const campoTexto = fundo.querySelector("#campo-confirmar-texto");
+      campoTexto.focus();
+
+      fundo.querySelector("#form-confirmar-exclusao").addEventListener("submit", (evento) => {
+        evento.preventDefault();
+        if (campoTexto.value.trim().toUpperCase() !== "APAGAR") {
+          exibirToast('Digite exatamente "APAGAR" para confirmar.', "erro");
+          return;
+        }
+        limparTudo();
+        fecharModal();
+        exibirToast("Todos os dados foram apagados. Recarregando...", "sucesso");
+        setTimeout(() => window.location.reload(), 1000);
+      });
+    });
   </script>
 </body>
 </html>
