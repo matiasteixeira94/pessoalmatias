@@ -64,6 +64,15 @@ fieldset {
   border: none;
 }
 
+/* O atributo [hidden] precisa vencer qualquer `display` definido por
+   classe (ex.: .secao { display: flex }) — sem isso, um elemento
+   escondido via `hidden` continua ocupando layout (só sem conteúdo
+   visível), porque a regra do autor tem precedência sobre a do
+   navegador mesmo com a mesma especificidade. */
+[hidden] {
+  display: none !important;
+}
+
 /* Foco visível sempre — acessibilidade (Fase 4 reforça isso) */
 :focus-visible {
   outline: 2px solid currentColor;

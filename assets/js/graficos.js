@@ -76,6 +76,7 @@ export function graficoLinha(canvas, { labels, dados, rotulo = "Valor" }) {
           grid: { color: corGrade },
           ticks: { color: corTexto, callback: (valor) => formatarMoeda(valor) },
           beginAtZero: true,
+          suggestedMax: 100, // evita uma escala de 0 a 1 estranha quando ainda não há nenhum dado lançado
         },
       },
       plugins: {
@@ -116,6 +117,7 @@ export function graficoBarrasReceitaDespesa(canvas, { labels, receitas, despesas
           grid: { color: corGrade },
           ticks: { color: corTexto, callback: (valor) => formatarMoeda(valor) },
           beginAtZero: true,
+          suggestedMax: 100, // evita uma escala de 0 a 1 estranha quando ainda não há nenhum dado lançado
         },
       },
       plugins: {
@@ -154,6 +156,7 @@ export function graficoRanking(canvas, { rotulos, valores }) {
           grid: { color: corGrade },
           ticks: { color: corTexto, callback: (valor) => formatarMoeda(valor) },
           beginAtZero: true,
+          suggestedMax: 100, // evita uma escala de 0 a 1 estranha quando ainda não há nenhum dado lançado
         },
         y: { grid: { display: false }, ticks: { color: corTexto } },
       },
@@ -200,6 +203,7 @@ export function graficoComparativoDuplo(canvas, { rotulos, valores }) {
           grid: { color: corGrade },
           ticks: { color: corTexto, callback: (valor) => formatarMoeda(valor) },
           beginAtZero: true,
+          suggestedMax: 100, // evita uma escala de 0 a 1 estranha quando ainda não há nenhum dado lançado
         },
       },
       plugins: {
