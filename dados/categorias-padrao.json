@@ -1,0 +1,20 @@
+[
+  { "nome": "Moradia", "tipo": "despesa", "cor": "#16596a", "icone": "🏠", "ativa": true },
+  { "nome": "Alimentação", "tipo": "despesa", "cor": "#b54c35", "icone": "🍽️", "ativa": true },
+  { "nome": "Transporte", "tipo": "despesa", "cor": "#d99417", "icone": "🚗", "ativa": true },
+  { "nome": "Saúde", "tipo": "despesa", "cor": "#2a7a52", "icone": "🩺", "ativa": true },
+  { "nome": "Educação", "tipo": "despesa", "cor": "#2f8ba1", "icone": "📚", "ativa": true },
+  { "nome": "Lazer", "tipo": "despesa", "cor": "#8a5a05", "icone": "🎬", "ativa": true },
+  { "nome": "Pessoal", "tipo": "despesa", "cor": "#6b5b95", "icone": "🧴", "ativa": true },
+  { "nome": "Família", "tipo": "despesa", "cor": "#9c3f2c", "icone": "👨‍👩‍👧", "ativa": true },
+  { "nome": "Financeiro", "tipo": "despesa", "cor": "#114652", "icone": "🏦", "ativa": true },
+  { "nome": "Impostos", "tipo": "despesa", "cor": "#55625d", "icone": "🧾", "ativa": true },
+  { "nome": "Investimentos", "tipo": "despesa", "cor": "#1c6d82", "icone": "📈", "ativa": true },
+  { "nome": "Outros", "tipo": "despesa", "cor": "#838f8a", "icone": "📦", "ativa": true },
+
+  { "nome": "Salário", "tipo": "receita", "cor": "#2a7a52", "icone": "💼", "ativa": true },
+  { "nome": "Bolsa/Pesquisa", "tipo": "receita", "cor": "#1c6d82", "icone": "🎓", "ativa": true },
+  { "nome": "Freelance", "tipo": "receita", "cor": "#348f61", "icone": "🛠️", "ativa": true },
+  { "nome": "Rendimentos", "tipo": "receita", "cor": "#2f8ba1", "icone": "💰", "ativa": true },
+  { "nome": "Outras Receitas", "tipo": "receita", "cor": "#5c8f6b", "icone": "➕", "ativa": true }
+]
