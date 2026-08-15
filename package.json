@@ -1,0 +1,12 @@
+{
+  "name": "gestao-financeira-matias",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema web de gestão financeira pessoal — HTML/CSS/JS puro, PWA, deploy estático na Vercel.",
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve . -l 5173",
+    "start": "npx serve . -l 5173"
+  },
+  "license": "UNLICENSED"
+}
