@@ -1,7 +1,9 @@
 [
   { "nome": "Moradia", "tipo": "despesa", "cor": "#16596a", "icone": "🏠", "ativa": true },
   { "nome": "Alimentação", "tipo": "despesa", "cor": "#b54c35", "icone": "🍽️", "ativa": true },
-  { "nome": "Transporte", "tipo": "despesa", "cor": "#d99417", "icone": "🚗", "ativa": true },
+  { "nome": "Transporte", "tipo": "despesa", "cor": "#6f7c73", "icone": "🚌", "ativa": true },
+  { "nome": "Combustível", "tipo": "despesa", "cor": "#d99417", "icone": "⛽", "ativa": true },
+  { "nome": "Carro", "tipo": "despesa", "cor": "#3a5a7a", "icone": "🚙", "ativa": true },
   { "nome": "Saúde", "tipo": "despesa", "cor": "#2a7a52", "icone": "🩺", "ativa": true },
   { "nome": "Educação", "tipo": "despesa", "cor": "#2f8ba1", "icone": "📚", "ativa": true },
   { "nome": "Lazer", "tipo": "despesa", "cor": "#8a5a05", "icone": "🎬", "ativa": true },
